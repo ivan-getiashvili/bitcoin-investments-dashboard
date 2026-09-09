@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BTC Cycle Dashboard</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #262c36;
+    --text: #e6edf3; --muted: #8b949e;
+    --up: #3fb950; --down: #f85149; --accent: #f0a020;
+    --cold: #58a6ff; --hot: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    padding: 24px 20px 60px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 16px; margin-bottom: 6px; }
+  h1 { font-size: 20px; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+  .price { font-size: 34px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .chg { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .up { color: var(--up); } .down { color: var(--down); }
+  .asof { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+  .asof.stale { color: var(--accent); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 26px; }
+  .tile { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .tile .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .tile .val { font-size: 25px; font-weight: 600; font-variant-numeric: tabular-nums; margin: 5px 0 3px; letter-spacing: -0.01em; }
+  .tile .note { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+  .returns { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; }
+  .rv { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .rl { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px 10px; margin-bottom: 16px; }
+  .card h2 { font-size: 14px; margin: 0 0 2px; font-weight: 600; }
+  .card .sub { font-size: 12.5px; color: var(--muted); margin: 0 0 12px; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .axis { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .gridline { stroke: var(--border); stroke-width: 1; }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); padding: 8px 0 4px; }
+  .legend i { display: inline-block; width: 11px; height: 2.5px; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+
+  footer { color: var(--muted); font-size: 12px; margin-top: 26px; line-height: 1.6; border-top: 1px solid var(--border); padding-top: 14px; }
+  .err { background: #2d1214; border: 1px solid var(--down); color: #ffb3ae; padding: 12px 14px; border-radius: 8px; }
+  .loading { color: var(--muted); padding: 40px 0; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="app"><div class="loading">Loading 13 years of Bitcoin data…</div></div>
+</div>
+
+<script>
+/* ============================================================================
+   M1 PROTOTYPE — deliberately fetches APIs straight from the browser.
+   That is fine here (public keyless endpoints, no secrets) but it does NOT
+   scale and does NOT survive a paywall. M2 moves this to an ingest script.
+   ========================================================================= */
+
+const CM = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics';
+
+/* ---------- fetching ---------- */
+
+async function fetchCoinMetrics() {
+  const params = new URLSearchParams({
+    assets: 'btc',
+    metrics: 'PriceUSD,CapMVRVCur,CapMrktCurUSD,SplyCur',
+    frequency: '1d',
+    start_time: '2011-01-01',
+    page_size: '10000',
+    sort: 'time',
+  });
+  let url = `${CM}?${params}`;
+  const rows = [];
+  // The API pages its results; follow next_page_url until it stops giving us one.
+  for (let page = 0; page < 10 && url; page++) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Coin Metrics returned ${res.status}`);
+    const json = await res.json();
+    rows.push(...json.data);
+    url = json.next_page_url || null;
+  }
+  return rows
+    .map(r => ({
+      date: r.time.slice(0, 10),
+      price: Number(r.PriceUSD),
+      mvrv: Number(r.CapMVRVCur),
+      marketCap: Number(r.CapMrktCurUSD),
+      supply: Number(r.SplyCur),
+    }))
+    .filter(r => Number.isFinite(r.price) && Number.isFinite(r.mvrv));
+}
+
+async function fetchFearGreed() {
+  const res = await fetch('https://api.alternative.me/fng/?limit=1');
+  if (!res.ok) throw new Error(`Fear & Greed returned ${res.status}`);
+  const json = await res.json();
+  return { value: Number(json.data[0].value), label: json.data[0].value_classification };
+}
+
+/* ---------- derived metrics ----------
+   Realized cap is NOT in the free tier — but MVRV is defined as
+   marketCap / realizedCap, so we can recover it by rearranging:
+       realizedCap  = marketCap / MVRV
+       realizedPrice = realizedCap / supply
+   That single line of algebra saves a $999/mo data plan.                    */
+
+function movingAverage(values, window) {
+  const out = new Array(values.length).fill(null);
+  let sum = 0;
+  for (let i = 0; i < values.length; i++) {
+    sum += values[i];
+    if (i >= window) sum -= values[i - window];
+    if (i >= window - 1) out[i] = sum / window;
+  }
+  return out;
+}
+
+function enrich(rows) {
+  const prices = rows.map(r => r.price);
+  const ma200 = movingAverage(prices, 200);
+  const ma1400 = movingAverage(prices, 1400); // ~200 weeks
+
+  rows.forEach((r, i) => {
+    r.realizedCap = r.marketCap / r.mvrv;
+    r.realizedPrice = r.realizedCap / r.supply;
+    r.ma200 = ma200[i];
+    r.ma1400 = ma1400[i];
+    r.mayer = ma200[i] ? r.price / ma200[i] : null;
+  });
+
+  // MVRV Z-score: how far market cap sits above realized cap, measured in
+  // standard deviations of market cap's own history.
+  const caps = rows.map(r => r.marketCap);
+  const mean = caps.reduce((a, b) => a + b, 0) / caps.length;
+  const sd = Math.sqrt(caps.reduce((a, c) => a + (c - mean) ** 2, 0) / caps.length);
+  rows.forEach(r => { r.mvrvZ = (r.marketCap - r.realizedCap) / sd; });
+
+  // Running all-time high, for drawdown.
+  let ath = 0;
+  rows.forEach(r => { ath = Math.max(ath, r.price); r.ath = ath; r.drawdown = r.price / ath - 1; });
+
+  return rows;
+}
+
+/* ---------- interpretation — this is the part people would pay for ---------- */
+
+function readMVRV(v) {
+  if (v < 1.0) return ['Below network cost basis — the average holder is underwater. Historically bottom territory.', 'cold'];
+  if (v < 1.5) return ['Accumulation zone. Modest unrealized profit across the network.', 'cold'];
+  if (v < 2.4) return ['Mid-cycle. Meaningful profit held, well short of historical froth.', 'neutral'];
+  if (v < 3.7) return ['Elevated. Late-cycle territory in previous bull markets.', 'warm'];
+  return ['Historically frothy. Past readings above 3.7 clustered near cycle tops.', 'hot'];
+}
+
+function readMayer(v) {
+  if (v < 0.8) return 'Deeply below the 200-day average — historically rare.';
+  if (v < 1.0) return 'Below the 200-day average.';
+  if (v < 1.5) return 'Normal range above the 200-day average.';
+  if (v < 2.4) return 'Extended above trend.';
+  return 'Very extended — 2.4x the 200-day average is a classic overheat marker.';
+}
+
+function readZ(v) {
+  if (v < 0) return 'Negative — market cap below realized cap. Deep value historically.';
+  if (v < 2) return 'Low. Plenty of historical headroom before cycle-top readings.';
+  if (v < 5) return 'Mid-range.';
+  if (v < 7) return 'Elevated — approaching the zone that preceded past tops.';
+  return 'Extreme. Prior readings above 7 marked cycle peaks.';
+}
+
+/* ---------- tiny SVG chart helper ----------
+   A line chart is just: map data values onto pixel coordinates, then draw.
+   No library needed to see that clearly.                                     */
+
+function lineChart({ rows, series, bands = [], yLog = false, height = 260, yFormat }) {
+  const W = 1000, H = height, P = { t: 10, r: 58, b: 22, l: 8 };
+  const xs = (i) => P.l + (i / (rows.length - 1)) * (W - P.l - P.r);
+
+  const allVals = series.flatMap(s => rows.map(r => r[s.key])).filter(v => Number.isFinite(v) && (!yLog || v > 0));
+  let lo = Math.min(...allVals), hi = Math.max(...allVals);
+  bands.forEach(b => { lo = Math.min(lo, b.from); hi = Math.max(hi, b.to === Infinity ? hi : b.to); });
+  const tf = yLog ? Math.log10 : (v) => v;
+  const [tlo, thi] = [tf(lo), tf(hi)];
+  const ys = (v) => P.t + (1 - (tf(v) - tlo) / (thi - tlo)) * (H - P.t - P.b);
+
+  const path = (key) => {
+    let d = '', pen = false;
+    rows.forEach((r, i) => {
+      const v = r[key];
+      if (!Number.isFinite(v) || (yLog && v <= 0)) { pen = false; return; }
+      d += `${pen ? 'L' : 'M'}${xs(i).toFixed(1)} ${ys(v).toFixed(1)} `;
+      pen = true;
+    });
+    return d;
+  };
+
+  // y-axis ticks
+  const ticks = [];
+  const steps = 5;
+  for (let i = 0; i <= steps; i++) {
+    const t = tlo + (i / steps) * (thi - tlo);
+    ticks.push(yLog ? 10 ** t : t);
+  }
+
+  // x-axis year labels
+  const years = [];
+  let lastYear = null;
+  rows.forEach((r, i) => {
+    const y = r.date.slice(0, 4);
+    if (y !== lastYear && Number(y) % 2 === 0) { years.push({ i, y }); lastYear = y; }
+    else if (y !== lastYear) lastYear = y;
+  });
+
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">
+    ${bands.map(b => {
+      const top = ys(Math.min(b.to === Infinity ? hi : b.to, hi));
+      const bot = ys(Math.max(b.from, lo));
+      return `<rect x="${P.l}" y="${top}" width="${W - P.l - P.r}" height="${Math.max(0, bot - top)}" fill="${b.color}" opacity="0.13"/>`;
+    }).join('')}
+    ${ticks.map(t => `<line class="gridline" x1="${P.l}" y1="${ys(t)}" x2="${W - P.r}" y2="${ys(t)}" opacity="0.55"/>
+       <text class="axis" x="${W - P.r + 7}" y="${ys(t) + 3.5}">${yFormat(t)}</text>`).join('')}
+    ${years.map(({ i, y }) => `<text class="axis" x="${xs(i)}" y="${H - 6}" text-anchor="middle">${y}</text>`).join('')}
+    ${series.map(s => `<path d="${path(s.key)}" fill="none" stroke="${s.color}" stroke-width="${s.width || 1.6}"
+       stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity="${s.opacity || 1}"/>`).join('')}
+  </svg>`;
+}
+
+/* ---------- formatting ---------- */
+const usd = (v) => v >= 1000 ? '$' + Math.round(v).toLocaleString('en-US') : '$' + v.toFixed(2);
+const usdShort = (v) => v >= 1000 ? '$' + (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k' : '$' + v.toFixed(0);
+const pct = (v) => (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + '%';
+
+/* ---------- render ---------- */
+
+function render(rows, fng, fngError) {
+  const now = rows[rows.length - 1];
+  const prev = rows[rows.length - 2];
+  const chg24 = now.price / prev.price - 1;
+  const [mvrvNote, mvrvTemp] = readMVRV(now.mvrv);
+
+  const ageHours = (Date.now() - new Date(now.date + 'T00:00:00Z')) / 3.6e6;
+  const stale = ageHours > 48;
+
+  const back = (days) => rows[Math.max(0, rows.length - 1 - days)];
+  const ret = (days) => now.price / back(days).price - 1;
+
+  // MVRV chart uses the last ~6 years so the bands stay readable.
+  const recent = rows.slice(-2200);
+
+  document.getElementById('app').innerHTML = `
+    <header>
+      <h1>Bitcoin Cycle Dashboard</h1>
+      <span class="price">${usd(now.price)}</span>
+      <span class="chg ${chg24 >= 0 ? 'up' : 'down'}">${pct(chg24)} <span style="color:var(--muted);font-weight:400">24h</span></span>
+    </header>
+    <div class="asof ${stale ? 'stale' : ''}">
+      ${stale ? '⚠ ' : ''}Data as of ${now.date}${stale ? ` — ${Math.round(ageHours)}h old` : ''}
+      · on-chain metrics settle daily
+    </div>
+
+    <div class="grid">
+      <div class="tile">
+        <div class="label">MVRV Ratio</div>
+        <div class="val">${now.mvrv.toFixed(2)}</div>
+        <div class="note">${mvrvNote}</div>
+      </div>
+      <div class="tile">
+        <div class="label">MVRV Z-Score</div>
+        <div class="val">${now.mvrvZ.toFixed(2)}</div>
+        <div class="note">${readZ(now.mvrvZ)}</div>
+      </div>
+      <div class="tile">
+        <div class="label">Realized Price</div>
+        <div class="val">${usd(now.realizedPrice)}</div>
+        <div class="note">Network's average cost basis. Price is ${pct(now.price / now.realizedPrice - 1)} above it.</div>
+      </div>
+      <div class="tile">
+        <div class="label">Mayer Multiple</div>
+        <div class="val">${now.mayer.toFixed(2)}</div>
+        <div class="note">${readMayer(now.mayer)}</div>
+      </div>
+      <div class="tile">
+        <div class="label">Fear &amp; Greed</div>
+        <div class="val">${fng ? fng.value : '—'}</div>
+        <div class="note">${fng ? fng.label : 'Unavailable: ' + fngError}</div>
+      </div>
+      <div class="tile">
+        <div class="label">Drawdown from ATH</div>
+        <div class="val">${pct(now.drawdown)}</div>
+        <div class="note">All-time high ${usd(now.ath)}.</div>
+      </div>
+      <div class="tile">
+        <div class="label">Returns</div>
+        <div class="returns">
+          ${[[7, '7d'], [30, '30d'], [365, '1y']].map(([d, lbl]) => `
+            <div>
+              <div class="rv ${ret(d) >= 0 ? 'up' : 'down'}">${pct(ret(d))}</div>
+              <div class="rl">${lbl}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div class="tile">
+        <div class="label">200-Week MA</div>
+        <div class="val">${now.ma1400 ? usd(now.ma1400) : '—'}</div>
+        <div class="note">${now.ma1400 ? `Historical cycle floor. Price is ${pct(now.price / now.ma1400 - 1)} above it.` : 'Not enough history.'}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>MVRV Ratio — where we are in the cycle</h2>
+      <p class="sub">Market cap divided by realized cap. Shaded bands mark historically meaningful zones.</p>
+      ${lineChart({
+        rows: recent,
+        series: [{ key: 'mvrv', color: '#f0a020', width: 1.8 }],
+        bands: [
+          { from: 0, to: 1, color: '#58a6ff' },
+          { from: 3.7, to: Infinity, color: '#f85149' },
+        ],
+        yFormat: (v) => v.toFixed(1),
+      })}
+      <div class="legend">
+        <span><i style="background:#f0a020"></i>MVRV</span>
+        <span><i style="background:#58a6ff"></i>Below 1.0 — under cost basis</span>
+        <span><i style="background:#f85149"></i>Above 3.7 — historically frothy</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Price vs. cost basis</h2>
+      <p class="sub">Log scale. Realized price is what the average coin last moved at — price has historically found a floor near it.</p>
+      ${lineChart({
+        rows,
+        yLog: true,
+        series: [
+          { key: 'price', color: '#e6edf3', width: 1.5 },
+          { key: 'realizedPrice', color: '#f0a020', width: 1.6 },
+          { key: 'ma1400', color: '#58a6ff', width: 1.4, opacity: 0.9 },
+        ],
+        yFormat: usdShort,
+      })}
+      <div class="legend">
+        <span><i style="background:#e6edf3"></i>Price</span>
+        <span><i style="background:#f0a020"></i>Realized price</span>
+        <span><i style="background:#58a6ff"></i>200-week MA</span>
+      </div>
+    </div>
+
+    <footer>
+      Data: Coin Metrics community API (CC BY-NC), alternative.me. Realized cap derived as market cap ÷ MVRV.<br>
+      <strong>Information only — not investment advice.</strong> M1 prototype: calls APIs directly from the browser, which M2 replaces.
+    </footer>`;
+}
+
+/* ---------- boot ---------- */
+
+(async function () {
+  try {
+    // Fear & Greed is decoration; the dashboard must survive it failing.
+    const [rows, fngResult] = await Promise.all([
+      fetchCoinMetrics(),
+      fetchFearGreed().then(v => ({ ok: true, v })).catch(e => ({ ok: false, e: e.message })),
+    ]);
+    if (!rows.length) throw new Error('No rows returned from Coin Metrics');
+    render(enrich(rows), fngResult.ok ? fngResult.v : null, fngResult.ok ? null : fngResult.e);
+  } catch (err) {
+    document.getElementById('app').innerHTML =
+      `<div class="err"><strong>Could not load data.</strong><br>${err.message}</div>`;
+    console.error(err);
+  }
+})();
+</script>
+</body>
+</html>

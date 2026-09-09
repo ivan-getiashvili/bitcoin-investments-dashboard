@@ -1,0 +1,16 @@
+# secrets — never commit
+.env
+.env.local
+.env*.local
+
+# dependencies
+node_modules/
+
+# build output
+.next/
+out/
+dist/
+
+# os junk
+.DS_Store
+*.log
