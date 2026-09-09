@@ -1,0 +1,59 @@
+name: Refresh on-chain data
+
+# The on-chain metrics (MVRV, realized cap, exchange balances) are published
+# once a day by the vendor, so once a day is genuinely as often as this can
+# usefully run. Price, funding and open interest do not come through here at
+# all — the page polls Binance directly, every 15 seconds, in the browser.
+#
+# GitHub's scheduler is best-effort: a `cron` here can fire 5-30 minutes late,
+# and occasionally gets skipped under load. That is fine for daily data and
+# would not be fine for anything time-critical.
+on:
+  schedule:
+    - cron: '25 1 * * *'      # 01:25 UTC — off the hour, where the queue is shortest
+  workflow_dispatch: {}        # lets you run it by hand from the Actions tab
+
+permissions:
+  contents: write              # to commit the refreshed data
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Fetch on-chain history and rebuild the page
+        run: |
+          node scripts/ingest.ts
+          node scripts/ingest-live.ts
+          node scripts/build-page.ts
+
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp dist/dashboard.html _site/index.html
+          cp data/live.json _site/live.json
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: refresh
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

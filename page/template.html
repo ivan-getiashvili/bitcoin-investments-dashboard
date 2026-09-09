@@ -80,6 +80,19 @@
   h1 { font-size: 27px; font-weight: 600; margin: 0; letter-spacing: -.02em; text-wrap: balance; }
   .asof { font-family: var(--mono); font-size: 12px; color: var(--muted); }
   .asof.stale { color: var(--warm); }
+  .asof-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono);
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    padding: 2px 9px 2px 7px; border-radius: 99px;
+    border: 1px solid var(--hair); background: var(--sunk); color: var(--muted);
+  }
+  .pill .led { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex: none; }
+  .pill.on { color: var(--up); }
+  .pill.on .led { background: var(--up); animation: led 2.4s ease-in-out infinite; }
+  @keyframes led { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+  /* Marks a figure recomputed from the live price rather than the daily close. */
+  .est { color: var(--muted); font-size: 11px; font-weight: 400; }
 
   /* ---- the thesis: cycle position rail ---- */
   .thesis {
@@ -165,7 +178,10 @@
   <div class="masthead">
     <div class="eyebrow">On-chain cycle indicator &middot; Bitcoin</div>
     <h1>Bitcoin Cycle Position</h1>
-    <div class="asof" id="asof"></div>
+    <div class="asof-row">
+      <span class="asof" id="asof"></span>
+      <span class="pill" id="pill"><span class="led"></span><span id="pillText">Snapshot</span></span>
+    </div>
   </div>
 
   <section class="thesis">
@@ -336,55 +352,195 @@ function rangeButtons(el, initial, onPick) {
   });
 }
 
-/* ---------- render ---------- */
-const S = DATA.series, L = DATA.latest, R = DATA.readings;
+/* ---------- state ---------- */
+const S = DATA.series, L = DATA.latest, A = DATA.anchors, B = DATA.bands;
 const slice = days => {
   const n = S.date.length, start = days === Infinity ? 0 : Math.max(0, n - days);
   return { start, dates: S.date.slice(start) };
 };
 
-document.getElementById('score').textContent = DATA.cycle.score.toFixed(0);
-document.getElementById('scoreLabel').textContent = DATA.cycle.label;
-document.getElementById('marker').style.left = `calc(${Math.max(0, Math.min(100, DATA.cycle.score))}% - 1.5px)`;
-document.getElementById('price').textContent = usd(L.price);
-document.getElementById('chg').innerHTML = `<span class="${sign(L.change24h)}">${pct(L.change24h)}</span> 24h`;
-document.getElementById('parts').innerHTML = DATA.cycle.parts
-  .map(p => `<span class="part">${p.label} <b>${p.value.toFixed(0)}</b></span>`).join('');
+/* Live readings, populated only if this page can actually reach the sources.
+   Where outbound requests are blocked the page stays on the baked daily
+   snapshot — the same numbers, labelled honestly rather than pretending. */
+const live = { on: false, price: null, change24h: null, funding: null, oi: null, at: null };
 
-const ageH = (Date.now() - Date.parse(DATA.generatedAt)) / 3.6e6;
-const asof = document.getElementById('asof');
-asof.textContent = ageH > 48
-  ? `&#9888; Data as of ${DATA.asOf} &mdash; snapshot is ${Math.round(ageH / 24)} days old`
-  : `Data as of ${DATA.asOf} &middot; on-chain metrics settle daily`;
-if (ageH > 48) asof.classList.add('stale');
+const ramp = (v, lo, hi) => Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100));
+/* `below: null` is the catch-all top band — JSON cannot carry Infinity. */
+const readBand = (bands, v) =>
+  bands.find(b => b.below == null || v < b.below) ?? bands[bands.length - 1];
 
-const metric = (k, v, reading, note) => ({ k, v, reading, note });
-const cells = [
-  metric('MVRV ratio', L.mvrv.toFixed(2), R.mvrv, R.mvrv.note),
-  metric('MVRV Z-score', L.mvrvZ.toFixed(2), R.mvrvZ, R.mvrvZ.note),
-  metric('Realized price', usd(L.realizedPrice), null, `Network cost basis. Price is ${pct(L.price / L.realizedPrice - 1)} above it.`),
-  metric('Mayer multiple', L.mayer.toFixed(2), R.mayer, R.mayer.note),
-  metric('200-week MA', usd(L.ma200w), null, `Historical cycle floor. Price is ${pct(L.price / L.ma200w - 1)} above it.`),
-  metric('Drawdown from ATH', pct(L.drawdown), null, `All-time high ${usd(L.ath)}.`),
-  metric('Returns', `<span class="${sign(L.returns.d7)}">${pct(L.returns.d7)}</span> <span style="color:var(--muted);font-size:13px">7d</span>`, null,
-    `30d <span class="${sign(L.returns.d30)}">${pct(L.returns.d30)}</span> &middot; 1y <span class="${sign(L.returns.d365)}">${pct(L.returns.d365)}</span>`),
-  L.fearGreed && metric('Fear &amp; Greed', L.fearGreed.value, null, L.fearGreed.label),
-  L.fundingRate != null && metric('Funding rate', (L.fundingRate * 10000).toFixed(2) + ' bp', R.funding, R.funding.note),
-  L.openInterestUsd != null && metric('Open interest', '$' + (L.openInterestUsd / 1e9).toFixed(2) + 'B', null, 'Notional value of open BTC perpetual positions on Binance.'),
-  L.exchangeSupply != null && metric('On exchanges', (L.exchangeSupply / 1e6).toFixed(2) + 'M BTC', null, `${(L.exchangeSupply / 21e6 * 100).toFixed(1)}% of the 21M cap sits on exchanges.`),
-  L.hashRateEh != null && metric('Hashrate', L.hashRateEh.toFixed(0) + ' EH/s', null, 'Security budget. Rising hashrate means miners keep committing capital.'),
-].filter(Boolean);
+/**
+ * Recompute everything that moves with price, from whatever price we have.
+ *
+ * Realized cap and the two moving averages stay pinned to their daily close.
+ * That is not laziness: realized cap only moves when coins actually transact,
+ * a fraction of a percent a day, and a 200-day mean barely registers one more
+ * sample. Scaling market cap by a live price is therefore a fair intraday
+ * estimate — and the page marks every figure derived this way.
+ */
+function derive() {
+  const price = live.price ?? L.price;
+  const marketCap = A.supply * price;
+  const mvrv = marketCap / A.realizedCap;
+  const mvrvZ = (marketCap - A.realizedCap) / A.capSd;
+  const mayer = A.ma200d ? price / A.ma200d : null;
+  const ath = Math.max(L.ath, price);
+  const funding = live.funding ?? L.fundingRate;
 
-document.getElementById('metrics').innerHTML = cells.map(c => `
-  <div class="metric">
-    <div class="k">${c.reading ? `<span class="dot t-${c.reading.temp}"></span>` : ''}${c.k}</div>
-    <div class="v">${c.v}</div>
-    <div class="n">${c.note}</div>
-  </div>`).join('');
+  const parts = DATA.cycle.parts.map(p => {
+    let value = p.value;
+    if (p.key === 'mvrvZ') value = ramp(mvrvZ, p.lo, p.hi);
+    else if (p.key === 'mvrv') value = ramp(mvrv, p.lo, p.hi);
+    else if (p.key === 'mayer' && mayer != null) value = ramp(mayer, p.lo, p.hi);
+    else if (p.key === 'vs200w' && A.ma200w) value = ramp(price / A.ma200w, p.lo, p.hi);
+    return { ...p, value };
+  });
 
-document.getElementById('srcs').innerHTML =
+  return {
+    price, change24h: live.change24h ?? L.change24h,
+    mvrv, mvrvZ, mayer, ath, drawdown: price / ath - 1,
+    funding, oi: live.oi ?? L.openInterestUsd,
+    realizedPrice: A.realizedCap / A.supply,
+    score: parts.reduce((a, p) => a + p.value, 0) / parts.length,
+    parts,
+  };
+}
+
+function scoreLabel(s) {
+  return s < 20 ? 'Deep value' : s < 40 ? 'Accumulation' : s < 60 ? 'Mid-cycle'
+       : s < 80 ? 'Heating up' : 'Overheated';
+}
+
+/* ---------- painting ---------- */
+const $ = id => document.getElementById(id);
+/* Only meaningful while live: the daily-close figure the estimate started from. */
+const closeNote = v => live.on ? ` <span class="est">Daily close ${v}.</span>` : '';
+
+/** Perps settle funding every 8 hours; the countdown is the useful part. */
+function fundingCountdown() {
+  if (!live.nextFunding) return '';
+  const mins = Math.max(0, Math.round((live.nextFunding - Date.now()) / 60000));
+  return ` <span class="est">Next settlement in ${Math.floor(mins / 60)}h ${mins % 60}m.</span>`;
+}
+
+function paint() {
+  const d = derive();
+
+  $('score').textContent = d.score.toFixed(0);
+  $('scoreLabel').textContent = scoreLabel(d.score);
+  $('marker').style.left = `calc(${Math.max(0, Math.min(100, d.score))}% - 1.5px)`;
+  $('price').textContent = usd(d.price);
+  $('chg').innerHTML = `<span class="${sign(d.change24h)}">${pct(d.change24h)}</span> 24h`;
+  $('parts').innerHTML = d.parts
+    .map(p => `<span class="part">${p.label} <b>${p.value.toFixed(0)}</b></span>`).join('');
+
+  const mvrvRead = readBand(B.mvrv, d.mvrv);
+  const zRead = readBand(B.mvrvZ, d.mvrvZ);
+  const mayerRead = d.mayer == null ? null : readBand(B.mayer, d.mayer);
+  const fundRead = d.funding == null ? null : readBand(B.fundingBp, d.funding * 10000);
+
+  const cells = [
+    { k: 'MVRV ratio', v: d.mvrv.toFixed(2), read: mvrvRead, n: mvrvRead.note + closeNote(L.mvrv.toFixed(2)) },
+    { k: 'MVRV Z-score', v: d.mvrvZ.toFixed(2), read: zRead, n: zRead.note + closeNote(L.mvrvZ.toFixed(2)) },
+    { k: 'Realized price', v: usd(d.realizedPrice), n: `Network cost basis. Price is ${pct(d.price / d.realizedPrice - 1)} above it.` },
+    mayerRead && { k: 'Mayer multiple', v: d.mayer.toFixed(2), read: mayerRead, n: mayerRead.note },
+    A.ma200w && { k: '200-week MA', v: usd(A.ma200w), n: `Historical cycle floor. Price is ${pct(d.price / A.ma200w - 1)} above it.` },
+    { k: 'Drawdown from ATH', v: pct(d.drawdown), n: `All-time high ${usd(d.ath)}.` },
+    { k: 'Returns', v: `<span class="${sign(L.returns.d7)}">${pct(L.returns.d7)}</span> <span class="est">7d</span>`,
+      n: `30d <span class="${sign(L.returns.d30)}">${pct(L.returns.d30)}</span> &middot; 1y <span class="${sign(L.returns.d365)}">${pct(L.returns.d365)}</span>` },
+    L.fearGreed && { k: 'Fear &amp; Greed', v: L.fearGreed.value, n: L.fearGreed.label + ' &middot; updates once a day' },
+    fundRead && { k: 'Funding rate', v: (d.funding * 10000).toFixed(2) + ' bp', read: fundRead, n: fundRead.note + fundingCountdown() },
+    d.oi != null && { k: 'Open interest', v: '$' + (d.oi / 1e9).toFixed(2) + 'B', n: 'Notional value of open BTC perpetual positions on Binance.' },
+    L.exchangeSupply != null && { k: 'On exchanges', v: (L.exchangeSupply / 1e6).toFixed(2) + 'M BTC', n: `${(L.exchangeSupply / 21e6 * 100).toFixed(1)}% of the 21M cap sits on exchanges.` },
+    L.hashRateEh != null && { k: 'Hashrate', v: L.hashRateEh.toFixed(0) + ' EH/s', n: 'Security budget. Rising hashrate means miners keep committing capital.' },
+  ].filter(Boolean);
+
+  $('metrics').innerHTML = cells.map(c => `
+    <div class="metric">
+      <div class="k">${c.read ? `<span class="dot t-${c.read.temp}"></span>` : ''}${c.k}</div>
+      <div class="v">${c.v}</div>
+      <div class="n">${c.n}</div>
+    </div>`).join('');
+
+  paintStatus();
+}
+
+function paintStatus() {
+  const days = Math.round((Date.now() - Date.parse(DATA.generatedAt)) / 8.64e7);
+  const asof = $('asof');
+  if (days > 2) {
+    asof.innerHTML = `&#9888; On-chain data as of ${DATA.asOf} &mdash; ${days} days old`;
+    asof.classList.add('stale');
+  } else {
+    asof.innerHTML = `On-chain data as of ${DATA.asOf} &middot; those metrics settle once a day`;
+    asof.classList.remove('stale');
+  }
+
+  const pill = $('pill');
+  pill.classList.toggle('on', live.on);
+  const secs = live.at ? Math.round((Date.now() - Date.parse(live.at)) / 1000) : null;
+  $('pillText').innerHTML = live.on
+    ? `Live${secs != null && secs < 3600 ? ` &middot; ${secs}s ago` : ''}`
+    : 'Snapshot';
+}
+
+$('srcs').innerHTML =
   'Sources: ' + DATA.sources.map(s => `${s.name} (${s.license})`).join(' &middot; ') +
-  `<br>Realized cap derived as market cap &divide; MVRV. Generated ${DATA.generatedAt.slice(0, 16).replace('T', ' ')} UTC.`;
+  `<br>Realized cap derived as market cap &divide; MVRV. On-chain snapshot generated ` +
+  `${DATA.generatedAt.slice(0, 16).replace('T', ' ')} UTC. Figures marked with a daily-close ` +
+  `reference are intraday estimates: realized cap and the moving averages are held at their ` +
+  `last close while price updates live.`;
+
+/* ---------- live tier ----------
+   All three Binance endpoints below are CORS-open, so the page fetches them
+   itself: no server of ours in the path, no cron, no rate limit of ours to
+   share. Price, funding and open interest are therefore as fresh as POLL_MS.
+   The on-chain metrics cannot work this way — they are published once a day,
+   full stop — so they stay baked into the file. */
+const POLL_MS = 15000;
+
+async function pullBinance() {
+  const [tick, prem, oi] = await Promise.all([
+    fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT').then(r => r.json()),
+    fetch('https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT').then(r => r.json()),
+    fetch('https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT').then(r => r.json()),
+  ]);
+  live.price = Number(tick.lastPrice);
+  live.change24h = Number(tick.priceChangePercent) / 100;
+  live.funding = Number(prem.lastFundingRate);
+  live.nextFunding = Number(prem.nextFundingTime);
+  live.oi = Number(oi.openInterest) * Number(prem.markPrice);
+  live.at = new Date().toISOString();
+  return true;
+}
+
+/* Fallback for a viewer who cannot reach Binance directly — a blocked region,
+   a corporate network, or a context that forbids outbound requests. Served
+   same-origin, refreshed by scripts/ingest-live.ts on a cron. */
+async function pullLiveFile() {
+  const r = await fetch('live.json?t=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) throw new Error('live.json ' + r.status);
+  const j = await r.json();
+  if (j.price != null) { live.price = j.price; live.change24h = j.change24h; }
+  if (j.fundingRate != null) live.funding = j.fundingRate;
+  if (j.openInterestUsd != null) live.oi = j.openInterestUsd;
+  live.at = j.fetchedAt;
+  return true;
+}
+
+async function tick() {
+  if (document.hidden) return;              // don't poll on behalf of a background tab
+  let ok = false;
+  try { ok = await pullBinance(); }
+  catch { try { ok = await pullLiveFile(); } catch { ok = false; } }
+  live.on = ok;
+  paint();
+}
+
+paint();                                    // baked data first — never a blank page waiting on a fetch
+tick();
+setInterval(tick, POLL_MS);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
 
 function drawMVRV(days) {
   const { start, dates } = slice(days);
