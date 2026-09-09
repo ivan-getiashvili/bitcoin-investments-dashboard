@@ -17,9 +17,21 @@ node scripts/ingest.ts && node scripts/build-page.ts
 
 then republish `dist/dashboard.html` to that same URL (pass it as `url`) so the link is kept.
 
-Next: M4 — automate that refresh (GitHub Actions daily cron) so it stops being manual.
-M3 (real hosting on Vercel, custom domain) is what a paid product eventually needs; the
-Artifact URL covers "permanent shareable link" until then. Full plan: `docs/PLAN.md`.
+M3/M4 in progress — hosting is **Hostinger** (owner's choice) with GitHub as source of truth:
+
+- `main` holds source only; generated files are gitignored
+- `.github/workflows/refresh.yml` runs daily at 01:25 UTC and on push: builds `_site/`,
+  verifies the page is non-empty and has data baked in, pushes it to the `deploy` branch,
+  and deploys GitHub Pages as a backup URL
+- Hostinger's Git integration serves repo contents verbatim (no build step), so it is
+  connected to the `deploy` branch → `public_html`
+- Two refresh tiers: on-chain daily (vendor publishes `1d` only — confirmed against the
+  catalog), price/funding/open-interest live in the browser every 15s from Binance
+
+Hostinger is paid hosting, which also removes the non-commercial restriction that free tiers
+like Vercel Hobby carry. The Coin Metrics CC BY-NC constraint still stands and is unaffected.
+
+Full plan: `docs/PLAN.md`.
 
 `index.html` is the superseded M1 prototype, kept only as a teaching reference.
 

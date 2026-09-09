@@ -36,6 +36,23 @@ produced that way are labelled with the close they started from.
 Realized cap is paywalled at every vendor, but MVRV is defined as `marketCap / realizedCap` —
 so rearranging recovers it for free.
 
+## Hosting
+
+```
+main branch  ──► GitHub Actions (daily 01:25 UTC + on push)
+                        │  npm run build:site
+                        ├──► deploy branch  ──► Hostinger pulls it ──► the custom domain
+                        └──► GitHub Pages   ──► backup URL
+```
+
+Hostinger's Git integration **runs no build step** — it serves whatever is committed. So the
+built site is published to its own `deploy` branch, whose root is exactly what belongs in
+`public_html`. `main` stays clean source; no generated files are committed to it.
+
+Hostinger setup (hPanel → **Advanced → Git**): connect GitHub, pick this repo, branch
+`deploy`, directory `public_html`. Auto-deploy on push is wired via OAuth webhook, so no FTP
+credentials are stored anywhere.
+
 ## Running it locally
 
 ```bash
