@@ -1,20 +1,22 @@
 name: Refresh on-chain data
 
-# The on-chain metrics (MVRV, realized cap, exchange balances) are published
-# once a day by the vendor, so once a day is genuinely as often as this can
-# usefully run. Price, funding and open interest do not come through here at
-# all — the page polls Binance directly, every 15 seconds, in the browser.
+# The on-chain metrics (MVRV, realized cap, exchange balances) are published once
+# a day by the vendor, so once a day is genuinely as often as this can usefully
+# run. Price, funding and open interest never come through here — the page polls
+# Binance directly, every 15 seconds, in the visitor's browser.
 #
-# GitHub's scheduler is best-effort: a `cron` here can fire 5-30 minutes late,
-# and occasionally gets skipped under load. That is fine for daily data and
-# would not be fine for anything time-critical.
+# GitHub's scheduler is best-effort: this can fire 5-30 minutes late and is
+# occasionally skipped under load. Fine for daily data; it would not be fine for
+# anything time-critical.
 on:
   schedule:
     - cron: '25 1 * * *'      # 01:25 UTC — off the hour, where the queue is shortest
-  workflow_dispatch: {}        # lets you run it by hand from the Actions tab
+  push:
+    branches: [main]
+  workflow_dispatch: {}        # run it by hand from the Actions tab
 
 permissions:
-  contents: write              # to commit the refreshed data
+  contents: read
   pages: write
   id-token: write
 
@@ -23,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  refresh:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,24 +34,21 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Fetch on-chain history and rebuild the page
-        run: |
-          node scripts/ingest.ts
-          node scripts/ingest-live.ts
-          node scripts/build-page.ts
+      - name: Fetch data and build the site
+        run: npm run build:site
 
-      - name: Assemble the site
+      - name: Check the build produced a real page
         run: |
-          mkdir -p _site
-          cp dist/dashboard.html _site/index.html
-          cp data/live.json _site/live.json
+          test -s _site/index.html || { echo "index.html missing or empty"; exit 1; }
+          grep -q 'Bitcoin Cycle Position' _site/index.html || { echo "page content missing"; exit 1; }
+          echo "index.html: $(wc -c < _site/index.html) bytes"
 
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
-  deploy:
-    needs: refresh
+  deploy-pages:
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -57,3 +56,20 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Vercel rebuilds on every push by itself, but a scheduled run makes no commit,
+  # so nudge it. Optional: skipped entirely unless the secret is set.
+  ping-vercel:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Trigger Vercel rebuild
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "VERCEL_DEPLOY_HOOK not set — skipping (GitHub Pages still deployed)."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" && echo "Vercel rebuild triggered."

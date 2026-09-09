@@ -1,0 +1,17 @@
+{
+  "name": "bitcoin-investments-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bitcoin cycle position dashboard — on-chain valuation metrics, derivatives positioning and market sentiment.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "refresh": "node --experimental-strip-types scripts/ingest.ts && node --experimental-strip-types scripts/ingest-live.ts",
+    "build": "node --experimental-strip-types scripts/build-page.ts",
+    "assemble": "node --experimental-strip-types scripts/assemble.ts",
+    "build:site": "npm run refresh && npm run build && npm run assemble",
+    "serve": "python3 -m http.server 4173 --directory _site"
+  }
+}

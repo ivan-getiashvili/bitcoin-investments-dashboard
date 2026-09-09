@@ -16,3 +16,4 @@ dist/
 *.log
 data/btc.json
 dist/
+_site/

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build:site",
+  "outputDirectory": "_site",
+  "framework": null,
+  "headers": [
+    {
+      "source": "/live.json",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=30, s-maxage=30" }]
+    },
+    {
+      "source": "/",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=300, stale-while-revalidate=600" }]
+    }
+  ]
+}
