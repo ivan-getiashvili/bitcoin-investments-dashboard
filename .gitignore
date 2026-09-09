@@ -14,3 +14,5 @@ dist/
 # os junk
 .DS_Store
 *.log
+data/btc.json
+dist/

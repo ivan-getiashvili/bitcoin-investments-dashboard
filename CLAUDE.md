@@ -5,8 +5,23 @@ Owner: Ivan. Beginner at web dev — explain concepts when introducing them, don
 
 ## Current stage
 
-M1 — single-file prototype (`index.html`). Next: M2 (data layer + adapters), M3 (Next.js on Vercel).
-Full plan: `docs/PLAN.md`.
+M2 done — adapters in `lib/sources/`, derived metrics in `lib/metrics.ts`, ingest writes
+`data/btc.json`, build bakes it into `dist/dashboard.html`. Published as an Artifact:
+https://claude.ai/code/artifact/351c3c67-80ea-46f6-8710-9e9777553107
+
+Refresh the published page:
+
+```bash
+node scripts/ingest.ts && node scripts/build-page.ts
+```
+
+then republish `dist/dashboard.html` to that same URL (pass it as `url`) so the link is kept.
+
+Next: M4 — automate that refresh (GitHub Actions daily cron) so it stops being manual.
+M3 (real hosting on Vercel, custom domain) is what a paid product eventually needs; the
+Artifact URL covers "permanent shareable link" until then. Full plan: `docs/PLAN.md`.
+
+`index.html` is the superseded M1 prototype, kept only as a teaching reference.
 
 ## Hard rules
 
