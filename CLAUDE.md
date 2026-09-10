@@ -63,9 +63,16 @@ between.
 Then **verify the live URL** — load it and confirm the change is really there. A green workflow
 is not evidence the page changed.
 
-Unavoidable difference between the two copies: they are byte-identical, but the Artifact viewer
-blocks outbound requests, so it shows the daily snapshot and reads "Snapshot", while Pages polls
-Binance and reads "Live". Same file, different sandbox — not drift.
+Two differences that republishing cannot fix, both properties of the Artifact platform:
+
+1. **The Artifact viewer blocks outbound requests**, so it shows the daily snapshot and reads
+   "Snapshot", while Pages polls Binance and reads "Live". Same file, different sandbox.
+2. **Anyone Ivan shared the Artifact link with sees a pinned earlier version**, not the latest
+   republish. Only Ivan can move that pin, in the artifact's own version UI. So the Artifact
+   link cannot be kept in sync for other people by anything done from here.
+
+Consequence: **GitHub Pages is the only link to share.** Keep republishing the Artifact as
+instructed, but never describe it as current for anyone but Ivan.
 
 Expect heavy iteration on metrics, data sources and design. Which file to touch:
 
