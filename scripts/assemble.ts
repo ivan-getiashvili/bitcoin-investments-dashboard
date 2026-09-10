@@ -19,4 +19,22 @@ await copyFile('data/live.json', '_site/live.json');
 // Tells GitHub Pages to serve the files as-is instead of running Jekyll over them.
 await writeFile('_site/.nojekyll', '');
 
-console.log('Assembled _site/ — index.html, live.json');
+// Cloudflare Pages reads _headers from the output directory. The page bakes in
+// data that changes once a day, so it must not sit in a CDN cache for longer
+// than that — revalidate on every view, and let the CDN serve a stale copy
+// briefly while it fetches a fresh one.
+await writeFile(
+  '_site/_headers',
+  [
+    '/',
+    '  Cache-Control: public, max-age=0, must-revalidate',
+    '  X-Content-Type-Options: nosniff',
+    '  Referrer-Policy: strict-origin-when-cross-origin',
+    '',
+    '/live.json',
+    '  Cache-Control: public, max-age=30',
+    '',
+  ].join('\n'),
+);
+
+console.log('Assembled _site/ — index.html, live.json, _headers');

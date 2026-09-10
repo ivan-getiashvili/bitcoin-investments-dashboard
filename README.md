@@ -60,13 +60,18 @@ main branch  ──► GitHub Actions (daily 01:25 UTC + on push)
                         └──► GitHub Pages   ──► backup URL
 ```
 
-Hostinger's Git integration **runs no build step** — it serves whatever is committed. So the
-built site is published to its own `deploy` branch, whose root is exactly what belongs in
-`public_html`. `main` stays clean source; no generated files are committed to it.
+**Cloudflare Pages** (primary) builds from `main` directly: build command `npm run build:site`,
+output directory `_site`, Node pinned by `.node-version`. It redeploys on every push, and
+`_site/_headers` sets its cache policy.
 
-Hostinger setup (hPanel → **Advanced → Git**): connect GitHub, pick this repo, branch
-`deploy`, directory `public_html`. Auto-deploy on push is wired via OAuth webhook, so no FTP
-credentials are stored anywhere.
+**GitHub Pages** runs the same build in Actions and deploys as a second URL — useful as a
+fallback and for confirming the daily refresh ran.
+
+The `deploy` branch holds the built site with its root exactly what belongs in `public_html`,
+for any host whose Git integration serves committed files without running a build (Hostinger
+works this way). Nothing needs it today; it costs nothing to keep publishing.
+
+`main` stays clean source — no generated files are committed to it.
 
 ## Running it locally
 
