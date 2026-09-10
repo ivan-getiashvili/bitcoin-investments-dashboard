@@ -42,6 +42,28 @@ Full plan: `docs/PLAN.md`.
 
 `index.html` is the superseded M1 prototype, kept only as a teaching reference.
 
+## Publishing — standing instruction
+
+Ivan expects **every change published immediately**, with no asking. After any edit:
+
+1. `git add -A && git commit && git push origin main`
+2. The push triggers `.github/workflows/refresh.yml`, which redeploys GitHub Pages in ~25s
+3. **Verify the live URL afterwards** — load it and check the change is actually there. Do not
+   report a change as shipped on the strength of a green workflow alone.
+
+Expect heavy iteration on metrics, data sources and design. Which file to touch:
+
+| To change… | Edit |
+|---|---|
+| Colours, type, layout, spacing, anything visual | `page/template.html` (tokens at the top) |
+| Interpretation text, band thresholds, cycle-score components | `lib/metrics.ts` (`BANDS`, `cycleScore`) |
+| Which metrics get fetched, what lands in the payload | `scripts/ingest.ts` + `lib/sources/coinmetrics.ts` |
+| Swap or add a data vendor | a file in `lib/sources/` — nothing else should need touching |
+| Live-tier endpoints and poll interval | `page/template.html` (`pullBinance`, `POLL_MS`) |
+
+The Artifact link (`claude.ai/code/artifact/351c3c67…`) does **not** auto-update. It only
+changes on an explicit republish, so it drifts. GitHub Pages is canonical.
+
 ## Hard rules
 
 1. **Never call a third-party API from browser code in production.** Data flows:
