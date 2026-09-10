@@ -44,12 +44,28 @@ Full plan: `docs/PLAN.md`.
 
 ## Publishing — standing instruction
 
-Ivan expects **every change published immediately**, with no asking. After any edit:
+Ivan expects **every change published immediately to every destination**, with no asking, and
+all copies kept identical — he does not want to track which version is where. After any edit,
+run all four steps, in this order:
 
 1. `git add -A && git commit && git push origin main`
 2. The push triggers `.github/workflows/refresh.yml`, which redeploys GitHub Pages in ~25s
-3. **Verify the live URL afterwards** — load it and check the change is actually there. Do not
-   report a change as shipped on the strength of a green workflow alone.
+3. `bash scripts/sync-artifact.sh` — waits for the deploy, then downloads the **live** page
+   into `dist/dashboard.html`. It refuses to mirror a failed deploy or an empty page.
+4. Republish the Artifact from `dist/dashboard.html`, passing the existing artifact URL so the
+   link is preserved.
+
+Order matters: the Artifact goes **last**. Publishing it before the deploy settles mirrors the
+previous version. Mirroring from the live page rather than a local build is deliberate — the
+Actions runner does its own data fetch, so a local build would differ by whatever price did in
+between.
+
+Then **verify the live URL** — load it and confirm the change is really there. A green workflow
+is not evidence the page changed.
+
+Unavoidable difference between the two copies: they are byte-identical, but the Artifact viewer
+blocks outbound requests, so it shows the daily snapshot and reads "Snapshot", while Pages polls
+Binance and reads "Live". Same file, different sandbox — not drift.
 
 Expect heavy iteration on metrics, data sources and design. Which file to touch:
 
