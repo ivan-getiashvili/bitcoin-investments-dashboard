@@ -1,12 +1,14 @@
 # Bitcoin Investments Dashboard
 
-### ▶ &nbsp;[**Open the live dashboard**](https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/)
+### ▶ &nbsp;[**Open the live dashboard**](https://cyclebasis.ivan-getiashvili.workers.dev/)
 
-[![Open the dashboard](https://img.shields.io/badge/live%20dashboard-open-2f6fb0?style=for-the-badge)](https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/)
+[![Open the dashboard](https://img.shields.io/badge/live%20dashboard-open-2f6fb0?style=for-the-badge)](https://cyclebasis.ivan-getiashvili.workers.dev/)
 [![Refresh and deploy](https://github.com/ivan-getiashvili/bitcoin-investments-dashboard/actions/workflows/refresh.yml/badge.svg)](https://github.com/ivan-getiashvili/bitcoin-investments-dashboard/actions/workflows/refresh.yml)
 [![Updated daily](https://img.shields.io/badge/on--chain%20data-refreshed%20daily-b8760f)](https://github.com/ivan-getiashvili/bitcoin-investments-dashboard/actions/workflows/refresh.yml)
 
-**https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/**
+**https://cyclebasis.ivan-getiashvili.workers.dev/**
+
+Mirror: <https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/>
 
 Where Bitcoin sits in its market cycle — read from the network's on-chain cost basis,
 derivatives positioning and market sentiment. Price, funding and open interest update live in
@@ -51,25 +53,26 @@ so rearranging recovers it for free.
 
 ## Hosting
 
-**Live at → https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/**
+**Live at → https://cyclebasis.ivan-getiashvili.workers.dev/**
 
 ```
 main branch  ──► GitHub Actions (daily 01:25 UTC + on push)
                         │  npm run build:site
-                        ├──► deploy branch  ──► Hostinger pulls it ──► the custom domain
-                        └──► GitHub Pages   ──► backup URL
+                        └──► GitHub Pages   ──► mirror URL
+
+main branch  ──► Cloudflare build ──► npx wrangler deploy ──► the live site
 ```
 
-**Cloudflare Pages** (primary) builds from `main` directly: build command `npm run build:site`,
-output directory `_site`, Node pinned by `.node-version`. It redeploys on every push, and
-`_site/_headers` sets its cache policy.
+**Cloudflare** (primary) builds from `main` on every push: `npm run build:site`, then
+`npx wrangler deploy` ships `_site/` as static assets per `wrangler.jsonc`. `.node-version`
+pins Node 22, and `_site/_headers` sets the cache policy.
 
 **GitHub Pages** runs the same build in Actions and deploys as a second URL — useful as a
 fallback and for confirming the daily refresh ran.
 
 The `deploy` branch holds the built site with its root exactly what belongs in `public_html`,
-for any host whose Git integration serves committed files without running a build (Hostinger
-works this way). Nothing needs it today; it costs nothing to keep publishing.
+for any host whose Git integration serves committed files without running a build. Nothing
+uses it today; it costs nothing to keep publishing.
 
 `main` stays clean source — no generated files are committed to it.
 
@@ -116,6 +119,6 @@ patterns, and Bitcoin has had four cycles — a small sample to generalize from.
 
 ---
 
-### ▶ &nbsp;[Open the live dashboard](https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/)
+### ▶ &nbsp;[Open the live dashboard](https://cyclebasis.ivan-getiashvili.workers.dev/)
 
-`https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/`
+`https://cyclebasis.ivan-getiashvili.workers.dev/`

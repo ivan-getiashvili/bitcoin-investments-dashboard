@@ -5,38 +5,26 @@ Owner: Ivan. Beginner at web dev — explain concepts when introducing them, don
 
 ## Current stage
 
-M2 done — adapters in `lib/sources/`, derived metrics in `lib/metrics.ts`, ingest writes
-`data/btc.json`, build bakes it into `dist/dashboard.html`. Published as an Artifact:
-https://claude.ai/code/artifact/351c3c67-80ea-46f6-8710-9e9777553107
-
-Refresh the published page:
-
-```bash
-node scripts/ingest.ts && node scripts/build-page.ts
-```
-
-then republish `dist/dashboard.html` to that same URL (pass it as `url`) so the link is kept.
-
 **Live URLs**
 
 - GitHub repo: https://github.com/ivan-getiashvili/bitcoin-investments-dashboard
-- GitHub Pages (live, auto-deployed): https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/
+- Cloudflare (primary, auto-deployed): https://cyclebasis.ivan-getiashvili.workers.dev/
+- GitHub Pages (mirror, auto-deployed): https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/
 - Artifact snapshot (no live tier — outbound requests blocked there):
   https://claude.ai/code/artifact/351c3c67-80ea-46f6-8710-9e9777553107
 
-M3/M4 done for GitHub Pages; Hostinger still to be connected. GitHub is source of truth:
+Hosting is **Cloudflare** (a Worker serving static assets, configured by `wrangler.jsonc`),
+with GitHub as source of truth. Hostinger and Hetzner were considered and dropped — Hostinger
+has no free tier, and the Hetzner account is cancelled and in arrears.
 
 - `main` holds source only; generated files are gitignored
-- `.github/workflows/refresh.yml` runs daily at 01:25 UTC and on push: builds `_site/`,
-  verifies the page is non-empty and has data baked in, pushes it to the `deploy` branch,
-  and deploys GitHub Pages as a backup URL
-- Hostinger's Git integration serves repo contents verbatim (no build step), so it is
-  connected to the `deploy` branch → `public_html`
+- Cloudflare builds from `main` on every push: `npm run build:site`, then `npx wrangler deploy`
+  ships `_site/` as static assets. `.node-version` pins Node 22 (type stripping needs >=22.6)
+- `.github/workflows/refresh.yml` runs daily at 01:25 UTC and on push: builds `_site/`, verifies
+  the page is non-empty and has data baked in, deploys GitHub Pages, and pushes the built site
+  to the `deploy` branch for any host that serves committed files without building
 - Two refresh tiers: on-chain daily (vendor publishes `1d` only — confirmed against the
   catalog), price/funding/open-interest live in the browser every 15s from Binance
-
-Hostinger is paid hosting, which also removes the non-commercial restriction that free tiers
-like Vercel Hobby carry. The Coin Metrics CC BY-NC constraint still stands and is unaffected.
 
 Full plan: `docs/PLAN.md`.
 
@@ -71,8 +59,8 @@ Two differences that republishing cannot fix, both properties of the Artifact pl
    republish. Only Ivan can move that pin, in the artifact's own version UI. So the Artifact
    link cannot be kept in sync for other people by anything done from here.
 
-Consequence: **GitHub Pages is the only link to share.** Keep republishing the Artifact as
-instructed, but never describe it as current for anyone but Ivan.
+Consequence: **the Cloudflare URL is the only link to share.** Keep republishing the Artifact
+as instructed, but never describe it as current for anyone but Ivan.
 
 Expect heavy iteration on metrics, data sources and design. Which file to touch:
 
@@ -85,7 +73,7 @@ Expect heavy iteration on metrics, data sources and design. Which file to touch:
 | Live-tier endpoints and poll interval | `page/template.html` (`pullBinance`, `POLL_MS`) |
 
 The Artifact link (`claude.ai/code/artifact/351c3c67…`) does **not** auto-update. It only
-changes on an explicit republish, so it drifts. GitHub Pages is canonical.
+changes on an explicit republish, so it drifts. Cloudflare is canonical.
 
 ## Hard rules
 
