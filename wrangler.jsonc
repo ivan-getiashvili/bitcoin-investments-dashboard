@@ -1,0 +1,12 @@
+{
+  // Cloudflare Workers config. The project is a static site with no server
+  // code, so there is no "main" script — just a directory of assets that
+  // Cloudflare serves directly. `npm run build:site` produces _site/ first.
+  "name": "cyclebasis",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./_site",
+    // Serve index.html at the root and fall back to it rather than a bare 404.
+    "not_found_handling": "single-page-application"
+  }
+}
