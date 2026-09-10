@@ -17,7 +17,14 @@ node scripts/ingest.ts && node scripts/build-page.ts
 
 then republish `dist/dashboard.html` to that same URL (pass it as `url`) so the link is kept.
 
-M3/M4 in progress — hosting is **Hostinger** (owner's choice) with GitHub as source of truth:
+**Live URLs**
+
+- GitHub repo: https://github.com/ivan-getiashvili/bitcoin-investments-dashboard
+- GitHub Pages (live, auto-deployed): https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/
+- Artifact snapshot (no live tier — outbound requests blocked there):
+  https://claude.ai/code/artifact/351c3c67-80ea-46f6-8710-9e9777553107
+
+M3/M4 done for GitHub Pages; Hostinger still to be connected. GitHub is source of truth:
 
 - `main` holds source only; generated files are gitignored
 - `.github/workflows/refresh.yml` runs daily at 01:25 UTC and on push: builds `_site/`,
