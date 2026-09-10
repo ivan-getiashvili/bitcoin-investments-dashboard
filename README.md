@@ -1,7 +1,20 @@
 # Bitcoin Investments Dashboard
 
+### ▶ &nbsp;[**Open the live dashboard**](https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/)
+
+[![Open the dashboard](https://img.shields.io/badge/live%20dashboard-open-2f6fb0?style=for-the-badge)](https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/)
+[![Refresh and deploy](https://github.com/ivan-getiashvili/bitcoin-investments-dashboard/actions/workflows/refresh.yml/badge.svg)](https://github.com/ivan-getiashvili/bitcoin-investments-dashboard/actions/workflows/refresh.yml)
+[![Updated daily](https://img.shields.io/badge/on--chain%20data-refreshed%20daily-b8760f)](https://github.com/ivan-getiashvili/bitcoin-investments-dashboard/actions/workflows/refresh.yml)
+
+**https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/**
+
 Where Bitcoin sits in its market cycle — read from the network's on-chain cost basis,
-derivatives positioning and market sentiment.
+derivatives positioning and market sentiment. Price, funding and open interest update live in
+your browser every 15 seconds; the on-chain metrics refresh daily.
+
+No account needed to view it.
+
+---
 
 ## What it shows
 
@@ -37,6 +50,8 @@ Realized cap is paywalled at every vendor, but MVRV is defined as `marketCap / r
 so rearranging recovers it for free.
 
 ## Hosting
+
+**Live at → https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/**
 
 ```
 main branch  ──► GitHub Actions (daily 01:25 UTC + on push)
@@ -93,3 +108,9 @@ whatever is already in `data/`.
 
 Information only, not investment advice. These metrics are heuristics drawn from historical
 patterns, and Bitcoin has had four cycles — a small sample to generalize from.
+
+---
+
+### ▶ &nbsp;[Open the live dashboard](https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/)
+
+`https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/`
