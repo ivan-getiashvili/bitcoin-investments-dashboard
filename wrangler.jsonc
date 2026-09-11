@@ -12,6 +12,10 @@
   // The custom domain lives here rather than in the dashboard so it is version
   // controlled: a redeploy re-asserts it, and the config is the record of where
   // this site is published. Cloudflare creates the DNS records and certificates.
+  // Declaring routes makes wrangler default workers_dev to false, which silently
+  // took the *.workers.dev URL offline. Keep it as a fallback while the custom
+  // domain's certificate settles, and as a way to reach the site if DNS breaks.
+  "workers_dev": true,
   "routes": [
     { "pattern": "btcmetrics.online", "custom_domain": true },
     { "pattern": "www.btcmetrics.online", "custom_domain": true }
