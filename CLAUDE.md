@@ -8,7 +8,9 @@ Owner: Ivan. Beginner at web dev — explain concepts when introducing them, don
 **Live URLs**
 
 - GitHub repo: https://github.com/ivan-getiashvili/bitcoin-investments-dashboard
-- Cloudflare (primary, auto-deployed): https://cyclebasis.ivan-getiashvili.workers.dev/
+- **Primary (custom domain): https://btcmetrics.online/** — registered at Cloudflare
+  Registrar 2026-09-11, attached to the Worker via `routes` in `wrangler.jsonc`
+- Cloudflare workers.dev fallback: https://cyclebasis.ivan-getiashvili.workers.dev/
 - GitHub Pages (mirror, auto-deployed): https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/
 - Artifact snapshot (no live tier — outbound requests blocked there):
   https://claude.ai/code/artifact/351c3c67-80ea-46f6-8710-9e9777553107
@@ -59,7 +61,7 @@ Two differences that republishing cannot fix, both properties of the Artifact pl
    republish. Only Ivan can move that pin, in the artifact's own version UI. So the Artifact
    link cannot be kept in sync for other people by anything done from here.
 
-Consequence: **the Cloudflare URL is the only link to share.** Keep republishing the Artifact
+Consequence: **https://btcmetrics.online/ is the only link to share.** Keep republishing the Artifact
 as instructed, but never describe it as current for anyone but Ivan.
 
 Expect heavy iteration on metrics, data sources and design. Which file to touch:
@@ -73,7 +75,7 @@ Expect heavy iteration on metrics, data sources and design. Which file to touch:
 | Live-tier endpoints and poll interval | `page/template.html` (`pullBinance`, `POLL_MS`) |
 
 The Artifact link (`claude.ai/code/artifact/351c3c67…`) does **not** auto-update. It only
-changes on an explicit republish, so it drifts. Cloudflare is canonical.
+changes on an explicit republish, so it drifts. btcmetrics.online is canonical.
 
 ## Hard rules
 

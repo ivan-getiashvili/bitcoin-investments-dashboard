@@ -1,14 +1,14 @@
 # Bitcoin Investments Dashboard
 
-### ▶ &nbsp;[**Open the live dashboard**](https://cyclebasis.ivan-getiashvili.workers.dev/)
+### ▶ &nbsp;[**Open the live dashboard**](https://btcmetrics.online/)
 
-[![Open the dashboard](https://img.shields.io/badge/live%20dashboard-open-2f6fb0?style=for-the-badge)](https://cyclebasis.ivan-getiashvili.workers.dev/)
+[![Open the dashboard](https://img.shields.io/badge/live%20dashboard-open-2f6fb0?style=for-the-badge)](https://btcmetrics.online/)
 [![Refresh and deploy](https://github.com/ivan-getiashvili/bitcoin-investments-dashboard/actions/workflows/refresh.yml/badge.svg)](https://github.com/ivan-getiashvili/bitcoin-investments-dashboard/actions/workflows/refresh.yml)
 [![Updated daily](https://img.shields.io/badge/on--chain%20data-refreshed%20daily-b8760f)](https://github.com/ivan-getiashvili/bitcoin-investments-dashboard/actions/workflows/refresh.yml)
 
-**https://cyclebasis.ivan-getiashvili.workers.dev/**
+**https://btcmetrics.online/**
 
-Mirror: <https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/>
+Mirrors: <https://cyclebasis.ivan-getiashvili.workers.dev/> &middot; <https://ivan-getiashvili.github.io/bitcoin-investments-dashboard/>
 
 Where Bitcoin sits in its market cycle — read from the network's on-chain cost basis,
 derivatives positioning and market sentiment. Price, funding and open interest update live in
@@ -53,7 +53,7 @@ so rearranging recovers it for free.
 
 ## Hosting
 
-**Live at → https://cyclebasis.ivan-getiashvili.workers.dev/**
+**Live at → https://btcmetrics.online/**
 
 ```
 main branch  ──► GitHub Actions (daily 01:25 UTC + on push)
@@ -119,6 +119,6 @@ patterns, and Bitcoin has had four cycles — a small sample to generalize from.
 
 ---
 
-### ▶ &nbsp;[Open the live dashboard](https://cyclebasis.ivan-getiashvili.workers.dev/)
+### ▶ &nbsp;[Open the live dashboard](https://btcmetrics.online/)
 
-`https://cyclebasis.ivan-getiashvili.workers.dev/`
+`https://btcmetrics.online/`
