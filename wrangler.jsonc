@@ -8,5 +8,12 @@
     "directory": "./_site",
     // Serve index.html at the root and fall back to it rather than a bare 404.
     "not_found_handling": "single-page-application"
-  }
+  },
+  // The custom domain lives here rather than in the dashboard so it is version
+  // controlled: a redeploy re-asserts it, and the config is the record of where
+  // this site is published. Cloudflare creates the DNS records and certificates.
+  "routes": [
+    { "pattern": "btcmetrics.online", "custom_domain": true },
+    { "pattern": "www.btcmetrics.online", "custom_domain": true }
+  ]
 }
