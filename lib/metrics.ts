@@ -12,6 +12,7 @@ import type { DailyRow, Snapshot } from './sources/types.ts';
 export type EnrichedRow = DailyRow & {
   realizedCap: number;
   realizedPrice: number;
+  ma50: number | null;
   ma200d: number | null;
   ma200w: number | null;
   mayer: number | null;
@@ -45,6 +46,7 @@ export function marketCapSd(rows: DailyRow[]): number {
 
 export function enrich(rows: DailyRow[]): EnrichedRow[] {
   const prices = rows.map((r) => r.price);
+  const ma50 = movingAverage(prices, 50);
   const ma200d = movingAverage(prices, 200);
   const ma200w = movingAverage(prices, 1400); // 200 weeks &asymp; 1400 days
 
@@ -60,6 +62,7 @@ export function enrich(rows: DailyRow[]): EnrichedRow[] {
       ...r,
       realizedCap,
       realizedPrice: realizedCap / r.supply,
+      ma50: ma50[i],
       ma200d: ma200d[i],
       ma200w: ma200w[i],
       mayer: ma200d[i] ? r.price / ma200d[i]! : null,

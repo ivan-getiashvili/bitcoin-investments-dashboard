@@ -82,6 +82,8 @@ const payload = {
     price: rows.map((r) => round(r.price)),
     mvrv: rows.map((r) => round(r.mvrv, 3)),
     realizedPrice: rows.map((r) => round(r.realizedPrice)),
+    ma50: rows.map((r) => round(r.ma50)),
+    ma200d: rows.map((r) => round(r.ma200d)),
     ma200w: rows.map((r) => round(r.ma200w)),
   },
   sources: [

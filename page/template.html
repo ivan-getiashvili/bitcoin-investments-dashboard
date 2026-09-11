@@ -17,6 +17,9 @@
     --hot:     #b33e39;
     --up:      #257a49;
     --down:    #b33e39;
+    --maShort: #7a5bb5;
+    --maLong:  #2f6fb0;
+    --maCycle: #157f6b;
     --band-cold: rgba(47,111,176,.10);
     --band-hot:  rgba(179,62,57,.10);
     --area:      rgba(184,118,15,.13);
@@ -39,6 +42,9 @@
       --hot:     #d4574f;
       --up:      #3fa96a;
       --down:    #d4574f;
+      --maShort: #a98ee0;
+      --maLong:  #4f8fd0;
+      --maCycle: #35a78f;
       --band-cold: rgba(79,143,208,.13);
       --band-hot:  rgba(212,87,79,.13);
       --area:      rgba(224,160,58,.14);
@@ -58,6 +64,9 @@
     --hot:     #d4574f;
     --up:      #3fa96a;
     --down:    #d4574f;
+    --maShort: #a98ee0;
+    --maLong:  #4f8fd0;
+    --maCycle: #35a78f;
     --band-cold: rgba(79,143,208,.13);
     --band-hot:  rgba(212,87,79,.13);
     --area:      rgba(224,160,58,.14);
@@ -162,6 +171,49 @@
   .ax { fill: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 10px; }
   .gl { stroke: var(--hair); stroke-width: 1; }
 
+  /* ---- block header with info affordance ---- */
+  .block-head { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px 0; }
+  .block-head h2 { font-size: 15px; font-weight: 600; margin: 0 0 2px; letter-spacing: -.01em; }
+  .block-head p { font-size: 12.5px; color: var(--muted); margin: 0; max-width: 60ch; }
+  .info-btn {
+    margin-left: auto; flex: none; width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid var(--line); background: var(--sunk); color: var(--muted);
+    font-family: var(--mono); font-size: 13px; font-weight: 600; line-height: 1; cursor: pointer;
+  }
+  .info-btn:hover { color: var(--ink); border-color: var(--muted); }
+  .info-btn[aria-expanded="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+  .info-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---- segmented controls ---- */
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 12px 18px 2px; }
+  .seg { display: flex; gap: 3px; }
+  .seg-label { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); align-self: center; margin-right: 2px; }
+  .seg button, .ranges button {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .04em; color: var(--muted);
+    background: transparent; border: 1px solid var(--hair); border-radius: 3px;
+    padding: 3px 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .seg button:hover, .ranges button:hover { color: var(--ink); border-color: var(--line); }
+  .seg button[aria-pressed="true"] { color: var(--ink); border-color: var(--muted); background: var(--sunk); }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .seg .sw { width: 10px; height: 2px; border-radius: 2px; flex: none; opacity: .35; }
+  .seg button[aria-pressed="true"] .sw { opacity: 1; }
+  .ranges { margin-left: auto; }
+
+  .srcline { font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 2px 18px 14px; }
+  .srcline a { color: var(--muted); }
+
+  /* ---- explainer ---- */
+  .info-panel { border-top: 1px solid var(--hair); background: var(--sunk); padding: 18px 20px 20px; }
+  .info-panel h3 { font-size: 13px; margin: 18px 0 6px; letter-spacing: -.01em; }
+  .info-panel h3:first-child { margin-top: 0; }
+  .info-panel p { font-size: 13px; line-height: 1.62; margin: 0 0 9px; max-width: 72ch; color: var(--ink); }
+  .info-panel ul { margin: 0 0 10px; padding-left: 18px; max-width: 72ch; }
+  .info-panel li { font-size: 13px; line-height: 1.6; margin-bottom: 5px; }
+  .info-panel a { color: var(--accent); text-underline-offset: 2px; }
+  .info-panel .aside { color: var(--muted); font-size: 12.5px; }
+  .info-panel code { font-family: var(--mono); font-size: 12px; background: var(--surface); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--hair); }
+
   footer { color: var(--muted); font-size: 12px; line-height: 1.65; border-top: 1px solid var(--line); padding-top: 16px; }
   footer strong { color: var(--ink); font-weight: 600; }
   .srcs { font-family: var(--mono); font-size: 11px; }
@@ -183,6 +235,82 @@
       <span class="pill" id="pill"><span class="led"></span><span id="pillText">Snapshot</span></span>
     </div>
   </div>
+
+  <section class="panel" id="price-block">
+    <div class="block-head">
+      <div>
+        <h2>Bitcoin price</h2>
+        <p>Daily closes since 2011, with the moving averages most often used to judge trend and
+           cycle position. Log scale by default &mdash; tap the <b>&#8505;</b> to see why that matters.</p>
+      </div>
+      <button class="info-btn" id="price-info-btn" aria-expanded="false" aria-controls="price-info"
+              title="About this chart">&#8505;</button>
+    </div>
+
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Price scale">
+        <span class="seg-label">Scale</span>
+        <button type="button" data-scale="log" aria-pressed="true">Log</button>
+        <button type="button" data-scale="linear" aria-pressed="false">Linear</button>
+      </div>
+      <div class="seg" id="price-overlays" role="group" aria-label="Overlays"></div>
+      <div class="ranges" id="r-price"></div>
+    </div>
+
+    <div class="chart-wrap"><div id="c-price"></div></div>
+    <div class="readout" id="ro-price"></div>
+    <div class="legend" id="lg-price"></div>
+    <div class="srcline" id="price-src"></div>
+
+    <div class="info-panel" id="price-info" hidden>
+      <h3>Why the vertical axis is logarithmic by default</h3>
+      <p>On a <b>linear</b> scale every equal vertical distance is an equal number of dollars: the gap
+         from $10k to $20k looks the same as $70k to $80k. On a <b>logarithmic</b> scale every equal
+         vertical distance is an equal <i>percentage</i> move, so a doubling looks the same whether it
+         happens at $100 or $100,000.</p>
+      <p>That distinction matters more for Bitcoin than for almost any other asset, because the price
+         has moved across five orders of magnitude. On a linear chart of the full history, everything
+         before 2017 is a flat line pressed against the bottom &mdash; the entire 2013 cycle, a move of
+         more than 100&times;, becomes invisible. Log scale makes cycles comparable to each other,
+         which is the whole point of looking at fifteen years at once.</p>
+      <p class="aside">Use linear when you care about absolute dollars &mdash; sizing a position, reading
+         a drawdown in money rather than percent, or zooming into a few weeks where the percentage
+         range is small anyway. Switch with the Scale control above.</p>
+
+      <h3>The moving averages, and what each is for</h3>
+      <p>A moving average is the mean of the last N daily closes, recalculated each day. It strips out
+         daily noise so the underlying trend is visible. All three here are simple averages
+         (<code>SMA</code>), equally weighting every day in the window.</p>
+      <ul>
+        <li><b>50-day</b> &mdash; medium-term trend. Reacts within weeks, so it turns early but also
+            whipsaws in choppy markets.</li>
+        <li><b>200-day</b> &mdash; the standard long-term trend line across all of finance. Price above
+            it is conventionally read as a bull regime, below it as a bear regime. The
+            <b>Mayer Multiple</b> shown further down this page is simply price divided by this line.</li>
+        <li><b>200-week</b> (1,400 days) &mdash; a Bitcoin-specific cycle floor. Price has spent only a
+            handful of days below it in Bitcoin's history, all at the deepest bear-market lows. It rises
+            almost monotonically, which is why it works as a floor rather than a signal.</li>
+        <li><b>Realized price</b> &mdash; not a moving average at all. It is the average price at which
+            every coin in existence last moved on-chain: the network's aggregate cost basis. When price
+            falls below it, the average holder is underwater.</li>
+      </ul>
+      <p>When the 50-day crosses above the 200-day it is called a <b>golden cross</b>, and below it a
+         <b>death cross</b>. Both are widely watched and both are lagging by construction &mdash; they
+         confirm a move that has already happened rather than predicting one.</p>
+      <p class="aside">The honest caveat: moving averages describe the past. They are smoothing, not
+         forecasting. They are most useful for answering "what regime are we in?" and least useful for
+         "what happens next week?"</p>
+
+      <h3>Further reading</h3>
+      <ul>
+        <li><a href="https://academy.glassnode.com/market/mvrv/realized-price" target="_blank" rel="noopener">Glassnode Academy &mdash; Realized Price</a> (what cost basis means on-chain)</li>
+        <li><a href="https://www.lookintobitcoin.com/charts/200-week-moving-average-heatmap/" target="_blank" rel="noopener">LookIntoBitcoin &mdash; 200-Week MA Heatmap</a> (the cycle-floor behaviour, charted)</li>
+        <li><a href="https://academy.binance.com/en/articles/moving-averages-explained" target="_blank" rel="noopener">Binance Academy &mdash; Moving Averages Explained</a></li>
+        <li><a href="https://www.investopedia.com/terms/m/movingaverage.asp" target="_blank" rel="noopener">Investopedia &mdash; Moving Average</a> &middot; <a href="https://www.investopedia.com/ask/answers/05/logvslinear.asp" target="_blank" rel="noopener">Logarithmic vs. Linear Scale</a></li>
+        <li><a href="https://docs.glassnode.com/guides-and-tutorials/metric-guides/mvrv" target="_blank" rel="noopener">Glassnode &mdash; MVRV metric guide</a></li>
+      </ul>
+    </div>
+  </section>
 
   <section class="thesis">
     <div class="thesis-top">
@@ -223,21 +351,6 @@
     </div>
   </div>
 
-  <div class="panel">
-    <div class="chart-head">
-      <h2>Price against cost basis</h2>
-      <p>Log scale. Realized price is what the average coin last moved at &mdash; price has historically found a floor near it.</p>
-      <div class="ranges" id="r-price"></div>
-    </div>
-    <div class="chart-wrap"><div id="c-price"></div></div>
-    <div class="readout" id="ro-price"></div>
-    <div class="legend">
-      <span><i style="background:var(--ink)"></i>Price</span>
-      <span><i style="background:var(--accent)"></i>Realized price</span>
-      <span><i style="background:var(--cold)"></i>200-week MA</span>
-    </div>
-  </div>
-
   <footer>
     <strong>Information only &mdash; not investment advice.</strong> Metrics are heuristics drawn from
     historical patterns; Bitcoin has had four cycles, which is a small sample.
@@ -251,7 +364,11 @@ const DATA = /*__DATA__*/null;
 
 /* ---------- formatting ---------- */
 const usd = v => '$' + Math.round(v).toLocaleString('en-US');
-const usdS = v => v >= 1000 ? '$' + (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k' : '$' + v.toFixed(0);
+const usdS = v =>
+  v >= 1000 ? '$' + (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k'
+  : v >= 10 ? '$' + v.toFixed(0)
+  : v >= 1  ? '$' + v.toFixed(1)
+  : '$' + v.toFixed(2);   // 2011 prices are cents — don't render them all as $0
 const pct = v => (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + '%';
 const sign = v => v >= 0 ? 'up' : 'down';
 
@@ -266,7 +383,10 @@ function chart({ mount, readout, dates, series, bands = [], yLog = false, yForma
   const vals = series.flatMap(s => s.values).filter(v => v != null && (!yLog || v > 0));
   let lo = Math.min(...vals), hi = Math.max(...vals);
   bands.forEach(b => { if (b.from > 0 || !yLog) lo = Math.min(lo, b.from); if (isFinite(b.to)) hi = Math.max(hi, b.to); });
-  const pad = (hi - lo) * 0.04; if (!yLog) { lo -= pad; hi += pad; }
+  // Pad the range slightly, but never below zero for a series that has no
+  // negative values — a negative price on the axis reads as a broken chart.
+  const pad = (hi - lo) * 0.04;
+  if (!yLog) { hi += pad; lo = lo < 0 ? lo - pad : Math.max(0, lo - pad); }
   const tf = yLog ? Math.log10 : (v => v);
   const [tlo, thi] = [tf(lo), tf(hi)];
   const ys = v => P.t + (1 - (tf(v) - tlo) / (thi - tlo)) * (H - P.t - P.b);
@@ -554,24 +674,79 @@ function drawMVRV(days) {
     yFormat: v => v.toFixed(1),
   });
 }
-function drawPrice(days) {
-  const { start, dates } = slice(days);
+/* ---------- price block ----------
+   Overlays are declared once and drive three things off the same list: the
+   toggle buttons, the drawn series, and the legend. Adding a moving average
+   later means adding one row here, not editing three places that can drift. */
+
+const OVERLAYS = [
+  { key: 'ma50',          label: '50D',      legend: '50-day MA',      color: 'var(--maShort)', width: 1.3 },
+  { key: 'ma200d',        label: '200D',     legend: '200-day MA',     color: 'var(--maLong)',  width: 1.4 },
+  { key: 'ma200w',        label: '200W',     legend: '200-week MA',    color: 'var(--maCycle)', width: 1.5 },
+  { key: 'realizedPrice', label: 'Realized', legend: 'Realized price', color: 'var(--accent)',  width: 1.4 },
+];
+
+const priceView = {
+  days: Infinity,
+  log: true,                      // log by default: five orders of magnitude of history
+  show: Object.fromEntries(OVERLAYS.map(o => [o.key, true])),
+};
+
+function drawPrice() {
+  const { start, dates } = slice(priceView.days);
+  const series = [
+    { label: 'Price', values: S.price.slice(start), color: 'var(--ink)', width: 1.6, fmt: usd },
+  ];
+  for (const o of OVERLAYS) {
+    if (!priceView.show[o.key] || !S[o.key]) continue;
+    series.push({
+      label: o.legend, values: S[o.key].slice(start), color: o.color, width: o.width,
+      fmt: v => v == null ? '&mdash;' : usd(v),
+    });
+  }
   chart({
-    mount: document.getElementById('c-price'),
-    readout: document.getElementById('ro-price'),
-    dates,
-    yLog: true,
-    series: [
-      { label: 'Price', values: S.price.slice(start), color: 'var(--ink)', width: 1.5, fmt: usd },
-      { label: 'Realized', values: S.realizedPrice.slice(start), color: 'var(--accent)', width: 1.5, fmt: usd },
-      { label: '200w MA', values: S.ma200w.slice(start), color: 'var(--cold)', width: 1.4, fmt: v => v == null ? '&mdash;' : usd(v) },
-    ],
-    yFormat: usdS,
+    mount: $('c-price'), readout: $('ro-price'), dates,
+    yLog: priceView.log, series, yFormat: usdS,
   });
+  $('lg-price').innerHTML = series
+    .map(s => `<span><i style="background:${s.color}"></i>${s.label}</span>`).join('');
 }
 
+/* overlay toggles */
+$('price-overlays').innerHTML = '<span class="seg-label">Overlays</span>' + OVERLAYS.map(o =>
+  `<button type="button" data-series="${o.key}" aria-pressed="true">` +
+  `<i class="sw" style="background:${o.color}"></i>${o.label}</button>`).join('');
+$('price-overlays').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const k = b.dataset.series;
+  priceView.show[k] = !priceView.show[k];
+  b.setAttribute('aria-pressed', String(priceView.show[k]));
+  drawPrice();
+});
+
+/* scale toggle */
+const scaleBtns = [...document.querySelectorAll('[data-scale]')];
+scaleBtns.forEach(b => b.addEventListener('click', () => {
+  priceView.log = b.dataset.scale === 'log';
+  scaleBtns.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  drawPrice();
+}));
+
+/* explainer */
+const infoBtn = $('price-info-btn'), infoPanel = $('price-info');
+infoBtn.addEventListener('click', () => {
+  const open = infoBtn.getAttribute('aria-expanded') === 'true';
+  infoBtn.setAttribute('aria-expanded', String(!open));
+  infoPanel.hidden = open;
+});
+
+$('price-src').innerHTML =
+  'Source: daily closes from the Coin Metrics community API (CC BY-NC). Moving averages and ' +
+  'realized price are computed from that series at ingest, not by a third party. ' +
+  `${S.date.length.toLocaleString('en-US')} daily observations, ${S.date[0]} to ${S.date.at(-1)}.`;
+
 rangeButtons(document.getElementById('r-mvrv'), '4Y', drawMVRV);
-rangeButtons(document.getElementById('r-price'), 'All', drawPrice);
+rangeButtons($('r-price'), 'All', d => { priceView.days = d; drawPrice(); });
 drawMVRV(1460);
-drawPrice(Infinity);
+drawPrice();
 </script>
