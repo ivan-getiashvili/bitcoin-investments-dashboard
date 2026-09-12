@@ -128,6 +128,27 @@
   }
   .rail-scale { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
   .parts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .board { display: flex; flex-direction: column; }
+  .board-row {
+    display: grid; grid-template-columns: minmax(118px, 1.1fr) 58px minmax(56px, 1fr) 40px 104px;
+    align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--hair); font-size: 13px;
+  }
+  .board-row:last-child { border-bottom: none; }
+  .board-read, .board-pts { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .board-read { color: var(--muted); }
+  .board-bar { height: 4px; border-radius: 2px; background: var(--sunk); overflow: hidden; }
+  .board-bar i { display: block; height: 100%; border-radius: 2px; }
+  .board-verdict {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 3px; border: 1px solid var(--hair); background: var(--sunk);
+    text-align: center; white-space: nowrap;
+  }
+  .divergence { font-size: 13px; line-height: 1.55; color: var(--muted); }
+  .divergence b { color: var(--ink); }
+  @media (max-width: 640px) {
+    .board-row { grid-template-columns: 1fr 56px 40px; }
+    .board-bar, .board-verdict { display: none; }
+  }
   .score-foot { display: flex; align-items: center; gap: 12px; }
   .part {
     font-family: var(--mono); font-size: 11px; padding: 3px 8px; border-radius: 3px;
@@ -215,9 +236,19 @@
   .info-panel .aside { color: var(--muted); font-size: 12.5px; }
   .info-panel code { font-family: var(--mono); font-size: 12px; background: var(--surface); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--hair); }
 
+  /* ---- a chart with a secondary panel beside it ---- */
+  .split { display: flex; align-items: flex-start; gap: 4px; }
+  /* min-width:0 matters: without it a flex item will not shrink below the
+     intrinsic width of its SVG, and the sidebar gets pushed out of the panel. */
+  .split-main { flex: 1 1 400px; min-width: 0; }
+  .split-side { flex: 0 0 244px; padding: 18px 18px 0 2px; display: flex; flex-direction: column; gap: 10px; }
+  @media (max-width: 820px) {
+    .split { flex-wrap: wrap; }
+    .split-side { flex: 1 1 100%; padding: 6px 18px 0; }
+  }
+
   /* ---- sentiment gauge ---- */
-  .gauge-row { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; padding: 14px 18px 0; }
-  .gauge-row svg { width: min(250px, 100%); height: auto; flex: 0 1 250px; }  /* fixed px overflowed a narrow phone */
+  .split-side svg { width: 100%; max-width: 244px; height: auto; }
   .gauge-note { font-size: 13px; line-height: 1.55; color: var(--muted); max-width: 46ch; }
   .gauge-note b { color: var(--ink); }
   .gauge-val { fill: var(--ink); font-family: var(--mono); font-size: 34px; font-weight: 500; }
@@ -257,6 +288,81 @@
       <span class="pill" id="pill"><span class="led"></span><span id="pillText">Snapshot</span></span>
     </div>
   </div>
+
+  <section class="thesis" id="summary-block">
+    <div class="block-head">
+      <div>
+        <h2>Where the cycle stands</h2>
+        <p id="verdict-line"></p>
+      </div>
+      <button class="info-btn" id="score-info-btn" aria-expanded="false" aria-controls="score-info"
+              title="How this is calculated">&#8505;</button>
+    </div>
+
+    <div class="thesis-top">
+      <div class="score-block">
+        <div class="eyebrow">Cycle score</div>
+        <div class="score-num" id="score"></div>
+        <div class="score-label" id="scoreLabel"></div>
+      </div>
+      <div class="price-block">
+        <div class="eyebrow">Bitcoin</div>
+        <div class="price-num" id="price"></div>
+        <div class="price-chg" id="chg"></div>
+      </div>
+    </div>
+
+    <div class="rail">
+      <div class="rail-track"><div class="rail-marker" id="marker"></div></div>
+      <div class="rail-scale">
+        <span>Deep value</span><span>Accumulation</span><span>Mid-cycle</span><span>Heating</span><span>Overheated</span>
+      </div>
+    </div>
+
+    <div class="board" id="signal-board"></div>
+    <div class="divergence" id="divergence"></div>
+
+    <div class="info-panel inline" id="score-info" hidden>
+      <h3>How five different signals become one number</h3>
+      <p>Each signal is a different kind of measurement &mdash; a ratio, a multiple, an index &mdash;
+         so they cannot be added up as they stand. Each is rescaled onto a common 0&ndash;100 points
+         scale, and those five point values are averaged. No weighting, no model, nothing fitted.</p>
+      <div id="score-calc"></div>
+      <p class="aside">The two middle columns are the <b>scale</b>, not readings. MVRV today is
+         <b>1.45</b>; the values beside it are what would score 0 and 100 points. Its 22 points are
+         what it contributes to the average.</p>
+
+      <h3>What happens when the signals disagree &mdash; which is the case now</h3>
+      <p>Nothing clever happens. Disagreement is not resolved, it is averaged &mdash; and that is
+         precisely where a composite score can mislead, because one extreme component drags the
+         result even when everything else agrees.</p>
+      <p>So the board above gives each signal its own verdict rather than only the total, and both
+         the <b>mean</b> and the <b>median</b> are reported. The median ignores the outlier. When the
+         two numbers diverge, the mean is being pulled by one component and the total deserves less
+         weight than the individual rows.</p>
+
+      <h3>Where the bounds come from</h3>
+      <p>Judgement calls anchored to previous cycles, not derived constants. Each high bound is
+         roughly where that metric sat at past cycle peaks &mdash; MVRV near 3.7, the Z-score near 7,
+         the Mayer Multiple near 2.4 &mdash; and each low bound roughly where it sat at cycle lows.
+         With four cycles of history these are reference points and nothing stronger.</p>
+
+      <h3>What is wrong with this method</h3>
+      <ul>
+        <li><b>Equal weighting is a choice, not a finding.</b> Sentiment counts as much as MVRV,
+            despite being a reading of mood rather than a balance sheet &mdash; and despite being
+            partly derived from price itself.</li>
+        <li><b>The components are correlated.</b> MVRV, the Z-score and the Mayer Multiple all rise
+            with price. Averaging them is closer to counting one thing three times than to combining
+            independent evidence.</li>
+        <li><b>It is descriptive, not predictive.</b> A low score says today resembles past
+            accumulation phases on these measures. It implies nothing about next week, and every
+            threshold rests on four events.</li>
+      </ul>
+      <p class="aside">Labels: below 20 deep value &middot; 20&ndash;40 accumulation &middot;
+         40&ndash;60 mid-cycle &middot; 60&ndash;80 heating up &middot; above 80 overheated.</p>
+    </div>
+  </section>
 
   <section class="panel" id="price-block">
     <div class="block-head">
@@ -331,70 +437,6 @@
         <li><a href="https://www.investopedia.com/terms/m/movingaverage.asp" target="_blank" rel="noopener">Investopedia &mdash; Moving Average</a> &middot; <a href="https://www.investopedia.com/ask/answers/05/logvslinear.asp" target="_blank" rel="noopener">Logarithmic vs. Linear Scale</a></li>
         <li><a href="https://docs.glassnode.com/guides-and-tutorials/metric-guides/mvrv" target="_blank" rel="noopener">Glassnode &mdash; MVRV metric guide</a></li>
       </ul>
-    </div>
-  </section>
-
-  <section class="thesis">
-    <div class="thesis-top">
-      <div class="score-block">
-        <div class="eyebrow">Cycle score</div>
-        <div class="score-num" id="score"></div>
-        <div class="score-label" id="scoreLabel"></div>
-      </div>
-      <div class="price-block">
-        <div class="eyebrow">Bitcoin</div>
-        <div class="price-num" id="price"></div>
-        <div class="price-chg" id="chg"></div>
-      </div>
-    </div>
-    <div class="rail">
-      <div class="rail-track"><div class="rail-marker" id="marker"></div></div>
-      <div class="rail-scale">
-        <span>Deep value</span><span>Accumulation</span><span>Mid-cycle</span><span>Heating</span><span>Overheated</span>
-      </div>
-    </div>
-    <div class="parts" id="parts"></div>
-
-    <div class="score-foot">
-      <button class="info-btn" id="score-info-btn" aria-expanded="false" aria-controls="score-info"
-              title="How this score is calculated">&#8505;</button>
-      <span class="gauge-note">Five measurements, each rescaled to 0&ndash;100 and averaged.
-        Open the <b>&#8505;</b> for today's actual arithmetic.</span>
-    </div>
-
-    <div class="info-panel inline" id="score-info" hidden>
-      <h3>How this number is calculated</h3>
-      <p>There is no model here and nothing is fitted. Five measurements are each rescaled onto a
-         0&ndash;100 range using fixed bounds, and then plainly averaged. That is the whole method,
-         and the table below is today's actual arithmetic &mdash; it updates with the live price.</p>
-      <div id="score-calc"></div>
-      <p>Each row is rescaled by where the measurement sits between its two bounds. MVRV is scored
-         across 0.8 to 3.7, so an MVRV of 1.45 lands
-         <code>(1.45 &minus; 0.8) &divide; (3.7 &minus; 0.8) = 22%</code> of the way up, giving 22
-         points. Anything at or below the low bound scores 0; at or above the high bound, 100.</p>
-
-      <h3>Where the bounds come from</h3>
-      <p>They are judgement calls anchored to previous cycles, not derived constants. The high bound
-         of each is roughly where that metric sat at past cycle peaks &mdash; MVRV near 3.7, the Z-score
-         near 7, the Mayer Multiple near 2.4. The low bounds are roughly where they sat at cycle lows.
-         With four cycles of history, these are reasonable reference points and nothing stronger.</p>
-
-      <h3>What is wrong with it &mdash; honestly</h3>
-      <ul>
-        <li><b>Equal weighting is a choice, not a finding.</b> Fear &amp; Greed counts exactly as much
-            as MVRV here, despite being sentiment rather than a balance-sheet measure, and despite
-            being partly derived from price itself. Look at today's table: the on-chain rows are all
-            in the single digits or low twenties while sentiment is the outlier pulling the average
-            up. One component is doing a lot of work.</li>
-        <li><b>The components are correlated.</b> MVRV, the Z-score and the Mayer Multiple all rise
-            when price rises. Averaging them is closer to counting the same thing three times than to
-            combining independent evidence.</li>
-        <li><b>It is descriptive, not predictive.</b> A low score says today looks like previous
-            accumulation phases on these measures. It says nothing about what happens next, and every
-            threshold rests on four events.</li>
-      </ul>
-      <p class="aside">The labels: below 20 deep value, 20&ndash;40 accumulation, 40&ndash;60 mid-cycle,
-         60&ndash;80 heating up, above 80 overheated.</p>
     </div>
   </section>
 
@@ -507,19 +549,21 @@
               title="About this chart">&#8505;</button>
     </div>
 
-    <div class="gauge-row">
-      <div id="fng-gauge"></div>
-      <div class="gauge-note" id="fng-now"></div>
+    <div class="split">
+      <div class="split-main">
+        <div class="controls">
+          <div class="seg" id="fng-overlays" role="group" aria-label="Overlays"></div>
+          <div class="ranges" id="r-fng"></div>
+        </div>
+        <div class="chart-wrap"><div id="c-fng"></div></div>
+        <div class="readout" id="ro-fng"></div>
+        <div class="legend" id="lg-fng"></div>
+      </div>
+      <aside class="split-side">
+        <div id="fng-gauge"></div>
+        <div class="gauge-note" id="fng-now"></div>
+      </aside>
     </div>
-
-    <div class="controls">
-      <div class="seg" id="fng-overlays" role="group" aria-label="Overlays"></div>
-      <div class="ranges" id="r-fng"></div>
-    </div>
-
-    <div class="chart-wrap"><div id="c-fng"></div></div>
-    <div class="readout" id="ro-fng"></div>
-    <div class="legend" id="lg-fng"></div>
     <div class="srcline" id="fng-src"></div>
 
     <div class="info-panel" id="fng-info" hidden>
@@ -781,8 +825,7 @@ function paint() {
   $('marker').style.left = `calc(${Math.max(0, Math.min(100, d.score))}% - 1.5px)`;
   $('price').textContent = usd(d.price);
   $('chg').innerHTML = `<span class="${sign(d.change24h)}">${pct(d.change24h)}</span> 24h`;
-  $('parts').innerHTML = d.parts
-    .map(p => `<span class="part">${p.label} <b>${p.value.toFixed(0)}</b></span>`).join('');
+  renderBoard(d);
 
   const mvrvRead = readBand(B.mvrv, d.mvrv);
   const zRead = readBand(B.mvrvZ, d.mvrvZ);
@@ -816,26 +859,75 @@ function paint() {
   paintStatus();
 }
 
+const fmtRaw = p => p.unit === 'index' ? p.raw.toFixed(0) : p.raw.toFixed(2);
+const bandColor = s => s < 20 ? 'var(--cold)' : s < 40 ? 'var(--cold)'
+                     : s < 60 ? 'var(--muted)' : s < 80 ? 'var(--warm)' : 'var(--hot)';
+
+/** Each signal's own verdict, so disagreement is visible rather than averaged away. */
+function renderBoard(d) {
+  $('signal-board').innerHTML = d.parts.map(p => {
+    const c = bandColor(p.value);
+    return `<div class="board-row">
+      <span>${p.label}</span>
+      <span class="board-read">${fmtRaw(p)}</span>
+      <span class="board-bar"><i style="width:${Math.max(2, p.value).toFixed(0)}%;background:${c}"></i></span>
+      <span class="board-pts">${p.value.toFixed(0)}</span>
+      <span class="board-verdict" style="color:${c}">${scoreLabel(p.value)}</span>
+    </div>`;
+  }).join('');
+
+  // Median discards the outlier; comparing it with the mean is how you tell
+  // whether the headline number is being dragged by a single component.
+  const pts = d.parts.map(p => p.value).slice().sort((a, b) => a - b);
+  const mid = Math.floor(pts.length / 2);
+  const median = pts.length % 2 ? pts[mid] : (pts[mid - 1] + pts[mid]) / 2;
+  const spread = Math.abs(d.score - median);
+  const low = d.parts.filter(p => p.value < 40);
+  const outlier = d.parts.reduce((m, p) =>
+    Math.abs(p.value - median) > Math.abs(m.value - median) ? p : m, d.parts[0]);
+
+  const agreement = low.length >= d.parts.length - 1 && outlier.value >= 40
+    ? `<b>${low.length} of the ${d.parts.length} signals</b> score below 40 &mdash; accumulation or lower. ` +
+      `The exception is <b>${outlier.label}</b> at ${outlier.value.toFixed(0)}, reading ` +
+      `${scoreLabel(outlier.value).toLowerCase()}.`
+    : `The signals are spread across ${new Set(d.parts.map(p => scoreLabel(p.value))).size} different verdicts, ` +
+      `with <b>${outlier.label}</b> furthest from the middle at ${outlier.value.toFixed(0)}.`;
+
+  const trust = spread > 8
+    ? `Mean <b>${d.score.toFixed(0)}</b> but median <b>${median.toFixed(0)}</b> &mdash; a gap that size means ` +
+      `one component is dragging the average, so the rows above are more informative than the headline.`
+    : `Mean <b>${d.score.toFixed(0)}</b> and median <b>${median.toFixed(0)}</b> sit close together, so no single ` +
+      `signal is distorting the total.`;
+
+  $('divergence').innerHTML = agreement + ' ' + trust;
+  $('verdict-line').innerHTML =
+    `Five measurements, each rescaled to 0&ndash;100 points and averaged. They do not all agree, ` +
+    `so each one's own verdict is shown below. Open the <b>&#8505;</b> for the arithmetic.`;
+}
+
 /** The score, shown as the arithmetic it actually is. */
 function renderScoreMath(d) {
-  const fmtRaw = p => p.unit === 'index' ? p.raw.toFixed(0) : p.raw.toFixed(2);
   const rows = d.parts.map(p => `
     <tr>
       <td>${p.label}</td>
-      <td class="num">${fmtRaw(p)}</td>
-      <td class="num">${p.lo} &ndash; ${p.hi}</td>
-      <td class="num"><span class="bar" style="width:${(p.value * 0.5).toFixed(0)}px"></span>${p.value.toFixed(0)}</td>
+      <td class="num"><b>${fmtRaw(p)}</b></td>
+      <td class="num">${p.lo}</td>
+      <td class="num">${p.hi}</td>
+      <td class="num">${p.value.toFixed(0)}</td>
     </tr>`).join('');
   $('score-calc').innerHTML = `
     <table class="calc">
       <thead><tr>
-        <th>Component</th><th class="num">Today</th>
-        <th class="num">Scored across</th><th class="num">Points (0&ndash;100)</th>
+        <th>Signal</th>
+        <th class="num">Its reading<br>today</th>
+        <th class="num">Reading that<br>scores 0 pts</th>
+        <th class="num">Reading that<br>scores 100 pts</th>
+        <th class="num">Points it<br>contributes</th>
       </tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr>
-        <td colspan="3">Average of the ${d.parts.length} components</td>
-        <td class="num">${d.score.toFixed(1)} &rarr; ${scoreLabel(d.score)}</td>
+        <td colspan="4">Average of the ${d.parts.length} point values</td>
+        <td class="num">${d.score.toFixed(1)}</td>
       </tr></tfoot>
     </table>`;
 }
