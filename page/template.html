@@ -330,14 +330,6 @@
       </div>
     </div>
 
-    <div class="controls" id="range-row">
-      <div class="seg" role="group" aria-label="Time range">
-        <span class="seg-label">Time range</span>
-      </div>
-      <div class="ranges" id="r-all"></div>
-      <span class="range-note">Applies to every chart on the page, so the axes always match.</span>
-    </div>
-
     <div class="board" id="signal-board"></div>
     <div class="divergence" id="divergence"></div>
 
@@ -401,6 +393,7 @@
         <button type="button" data-scale="linear" aria-pressed="false">Linear</button>
       </div>
       <div class="seg" id="price-overlays" role="group" aria-label="Overlays"></div>
+      <div class="ranges" id="r-price"></div>
     </div>
 
     <div class="chart-wrap"><div id="c-price"></div></div>
@@ -477,6 +470,7 @@
         <button type="button" data-mvrv="ratio" aria-pressed="true">Ratio</button>
         <button type="button" data-mvrv="z" aria-pressed="false">Z-score</button>
       </div>
+      <div class="ranges" id="r-mvrv"></div>
     </div>
 
     <div class="chart-wrap"><div id="c-mvrv"></div></div>
@@ -570,6 +564,7 @@
       <div class="split-main">
         <div class="controls">
           <div class="seg" id="fng-overlays" role="group" aria-label="Overlays"></div>
+          <div class="ranges" id="r-fng"></div>
         </div>
         <div class="chart-wrap"><div id="c-fng"></div></div>
         <div class="readout" id="ro-fng"></div>
@@ -646,6 +641,7 @@
 
     <div class="controls">
       <div class="seg" id="lev-overlays" role="group" aria-label="Smoothing"></div>
+      <div class="ranges" id="r-lev"></div>
     </div>
 
     <div class="split">
@@ -740,6 +736,8 @@
         <button type="button" data-net="hash" aria-pressed="true">Hashrate</button>
         <button type="button" data-net="exch" aria-pressed="false">Coins on exchanges</button>
       </div>
+      <div class="seg" id="net-hash-overlays" role="group" aria-label="Hashrate averages"></div>
+      <div class="ranges" id="r-net"></div>
     </div>
 
     <div class="split">
@@ -848,6 +846,19 @@ function chart({ mount, readout, dates, series, bands = [], yLog = false, yForma
   const xs = i => P.l + (i / (n - 1)) * (W - P.l - P.r);
 
   const vals = series.flatMap(s => s.values).filter(v => v != null && (!yLog || v > 0));
+
+  // A window can legitimately contain nothing — funding before the client fetch
+  // lands, or a range that predates a series. Math.min of an empty list is
+  // Infinity, which propagates NaN into every coordinate and takes the whole
+  // script down with it. Render an honest empty state instead.
+  if (!vals.length) {
+    mount.innerHTML = `<svg viewBox="0 0 1000 ${H}" role="img" aria-label="No data in this range">
+      <text class="ax" x="500" y="${(H / 2).toFixed(0)}" text-anchor="middle">no data in this range</text>
+    </svg>`;
+    if (readout) readout.innerHTML = '';
+    return;
+  }
+
   let lo = Math.min(...vals), hi = Math.max(...vals);
   // Bands are decoration clipped to the data range; they never stretch the axis.
   // Forcing a distant threshold into view (a 3.7 band over a series sitting at 1.4)
@@ -973,6 +984,27 @@ const slice = days => {
   const n = S.date.length, start = days === Infinity ? 0 : Math.max(0, n - days);
   return { start, dates: S.date.slice(start) };
 };
+
+/**
+ * The visible window for a chart, trimmed to where its own series actually have
+ * data. Sentiment begins in 2018 and funding in 2025, so asking either for "all
+ * history" against the shared date axis drew seven or fourteen years of empty
+ * axis before the line started. A chart should span its data, not the union of
+ * everyone else's.
+ */
+function windowFor(days, keys) {
+  const n = S.date.length;
+  const from = days === Infinity ? 0 : Math.max(0, n - days);
+  let first = n, last = -1;
+  for (const k of keys) {
+    const a = S[k];
+    if (!a) continue;
+    for (let i = from; i < n; i++) if (a[i] != null) { if (i < first) first = i; break; }
+    for (let i = n - 1; i >= from; i--) if (a[i] != null) { if (i > last) last = i; break; }
+  }
+  if (last < first) { first = from; last = n - 1; }        // nothing loaded yet
+  return { a: first, b: last + 1, dates: S.date.slice(first, last + 1) };
+}
 
 /* Live readings, populated only if this page can actually reach the sources.
    Where outbound requests are blocked the page stays on the baked daily
@@ -1255,11 +1287,12 @@ const mvrvView = { days: 1460, mode: 'ratio' };
 
 function drawMVRV() {
   const v = MVRV_VIEWS[mvrvView.mode];
-  const { start, dates } = slice(mvrvView.days);
+  const w = windowFor(mvrvView.days, [v.key]);
+  const dates = w.dates;
   chart({
     mount: $('c-mvrv'), readout: $('ro-mvrv'), dates, area: true,
     series: [{
-      label: v.label, values: S[v.key].slice(start), color: 'var(--accent)', width: 1.6,
+      label: v.label, values: S[v.key].slice(w.a, w.b), color: 'var(--accent)', width: 1.6,
       fmt: x => x == null ? '&mdash;' : x.toFixed(2),
     }],
     bands: v.bands,
@@ -1316,14 +1349,15 @@ const priceView = {
 };
 
 function drawPrice() {
-  const { start, dates } = slice(priceView.days);
+  const w = windowFor(priceView.days, ['price']);
+  const dates = w.dates;
   const series = [
-    { label: 'Price', values: S.price.slice(start), color: 'var(--ink)', width: 1.6, fmt: usd },
+    { label: 'Price', values: S.price.slice(w.a, w.b), color: 'var(--ink)', width: 1.6, fmt: usd },
   ];
   for (const o of OVERLAYS) {
     if (!priceView.show[o.key] || !S[o.key]) continue;
     series.push({
-      label: o.legend, values: S[o.key].slice(start), color: o.color, width: o.width,
+      label: o.legend, values: S[o.key].slice(w.a, w.b), color: o.color, width: o.width,
       fmt: v => v == null ? '&mdash;' : usd(v),
     });
   }
@@ -1444,12 +1478,14 @@ const FNG_OVERLAYS = [
 const fngView = { days: 1460, show: Object.fromEntries(FNG_OVERLAYS.map(o => [o.key, o.on])) };
 
 function drawFNG() {
-  const { start, dates } = slice(fngView.days);
-  const series = FNG_OVERLAYS.filter(o => fngView.show[o.key]).map(o => ({
-    label: o.legend, values: S[o.key].slice(start), color: o.color, width: o.width,
+  const on = FNG_OVERLAYS.filter(o => fngView.show[o.key]);
+  const w = windowFor(fngView.days, (on.length ? on : FNG_OVERLAYS).map(o => o.key));
+  const dates = w.dates;
+  const series = on.map(o => ({
+    label: o.legend, values: S[o.key].slice(w.a, w.b), color: o.color, width: o.width,
     fmt: v => v == null ? '&mdash;' : v.toFixed(0),
   }));
-  if (!series.length) series.push({ label: '30-day average', values: S.fearGreedMa30.slice(start),
+  if (!series.length) series.push({ label: '30-day average', values: S.fearGreedMa30.slice(w.a, w.b),
     color: 'var(--accent)', width: 1.8, fmt: v => v == null ? '&mdash;' : v.toFixed(0) });
   chart({
     mount: $('c-fng'), readout: $('ro-fng'), dates, series,
@@ -1568,15 +1604,17 @@ const LEV_OVERLAYS = [
   { key: 'funding7',  label: '7D avg',  legend: '7-day average',  color: 'var(--maShort)', width: 1.3, on: false },
   { key: 'funding30', label: '30D avg', legend: '30-day average', color: 'var(--accent)', width: 1.8, on: true },
 ];
-const levView = { show: Object.fromEntries(LEV_OVERLAYS.map(o => [o.key, o.on])) };
+const levView = { days: 365, show: Object.fromEntries(LEV_OVERLAYS.map(o => [o.key, o.on])) };
 
 function drawLev() {
-  const { start, dates } = slice(fngView.days);
-  const series = LEV_OVERLAYS.filter(o => levView.show[o.key] && S[o.key]).map(o => ({
-    label: o.legend, values: S[o.key].slice(start), color: o.color, width: o.width,
+  const on = LEV_OVERLAYS.filter(o => levView.show[o.key] && S[o.key]);
+  const w = windowFor(levView.days, (on.length ? on : LEV_OVERLAYS).map(o => o.key));
+  const dates = w.dates;
+  const series = on.map(o => ({
+    label: o.legend, values: S[o.key].slice(w.a, w.b), color: o.color, width: o.width,
     fmt: v => v == null ? '&mdash;' : v.toFixed(2) + ' bp',
   }));
-  if (!series.length) series.push({ label: 'Daily', values: S.funding.slice(start),
+  if (!series.length) series.push({ label: 'Daily', values: S.funding.slice(w.a, w.b),
     color: 'var(--accent)', width: 1.3, fmt: v => v == null ? '&mdash;' : v.toFixed(2) + ' bp' });
   chart({
     mount: $('c-lev'), readout: $('ro-lev'), dates, series,
@@ -1648,21 +1686,31 @@ $('lev-info-btn').addEventListener('click', () => {
 
 /* ---------- network health block ---------- */
 
-const netView = { mode: 'hash' };
+/* Raw daily hashrate is dominated by luck — blocks arrive on a Poisson process,
+   so the day-to-day series swings several percent for reasons that have nothing
+   to do with miners. Only the trailing means carry information, so the raw line
+   is gone from the chart. The current value still appears beside it. */
+const HASH_OVERLAYS = [
+  { key: 'hashRate30',  label: '30D',  legend: '30-day mean',  color: 'var(--accent)',  width: 1.6, on: true },
+  { key: 'hashRate60',  label: '60D',  legend: '60-day mean',  color: 'var(--cold)',    width: 1.6, on: true },
+  { key: 'hashRate200', label: '200D', legend: '200-day mean', color: 'var(--maShort)', width: 1.4, on: false },
+];
+const netView = { mode: 'hash', days: 1460, show: Object.fromEntries(HASH_OVERLAYS.map(o => [o.key, o.on])) };
 
 function drawNet() {
-  const { start, dates } = slice(fngView.days);
+  const hashOn = HASH_OVERLAYS.filter(o => netView.show[o.key] && S[o.key]);
+  const keys = netView.mode === 'hash'
+    ? (hashOn.length ? hashOn : HASH_OVERLAYS).map(o => o.key)
+    : ['exchangePct'];
+  const w = windowFor(netView.days, keys);
+  const dates = w.dates;
   const series = netView.mode === 'hash'
-    ? [
-        { label: 'Hashrate', values: S.hashRate.slice(start), color: 'var(--muted)', width: 1,
-          fmt: v => v == null ? '&mdash;' : v.toFixed(0) + ' EH/s' },
-        { label: '30-day', values: S.hashRate30.slice(start), color: 'var(--accent)', width: 1.6,
-          fmt: v => v == null ? '&mdash;' : v.toFixed(0) },
-        { label: '60-day', values: S.hashRate60.slice(start), color: 'var(--cold)', width: 1.6,
-          fmt: v => v == null ? '&mdash;' : v.toFixed(0) },
-      ]
+    ? (hashOn.length ? hashOn : [HASH_OVERLAYS[0]]).map(o => ({
+        label: o.legend, values: S[o.key].slice(w.a, w.b), color: o.color, width: o.width,
+        fmt: v => v == null ? '&mdash;' : v.toFixed(0) + ' EH/s',
+      }))
     : [
-        { label: 'On exchanges', values: S.exchangePct.slice(start), color: 'var(--accent)', width: 1.7,
+        { label: 'On exchanges', values: S.exchangePct.slice(w.a, w.b), color: 'var(--accent)', width: 1.7,
           fmt: v => v == null ? '&mdash;' : v.toFixed(2) + '%' },
       ];
   chart({
@@ -1674,6 +1722,7 @@ function drawNet() {
     `<span><i style="background:${s.color}"></i>${s.label}</span>`).join('') +
     (netView.mode === 'hash'
       ? '<span style="opacity:.75">30-day below 60-day = miners switching off</span>' : '');
+  $('net-hash-overlays').hidden = netView.mode !== 'hash';
 }
 
 function paintNet() {
@@ -1714,6 +1763,17 @@ function paintNet() {
     `${ex.length.toLocaleString('en-US')} days of exchange balances.`;
 }
 
+$('net-hash-overlays').innerHTML = '<span class="seg-label">Mean</span>' + HASH_OVERLAYS.map(o =>
+  `<button type="button" data-hash="${o.key}" aria-pressed="${o.on}">` +
+  `<i class="sw" style="background:${o.color}"></i>${o.label}</button>`).join('');
+$('net-hash-overlays').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const k = b.dataset.hash;
+  netView.show[k] = !netView.show[k];
+  b.setAttribute('aria-pressed', String(netView.show[k]));
+  drawNet();
+});
+
 const netBtns = [...document.querySelectorAll('[data-net]')];
 netBtns.forEach(b => b.addEventListener('click', () => {
   netView.mode = b.dataset.net;
@@ -1740,18 +1800,14 @@ loadFundingHistory().then(days => {
 }).catch(() => { fundingDays = 0; paintLev(); });
 
 
-/* One range control drives all three charts. Per-chart controls meant the price
-   chart could sit on fifteen years while MVRV sat on four, and their axes then
-   labelled years against months — one page speaking two languages. Sharing the
-   window makes the axes identical by construction rather than by coincidence. */
-rangeButtons($('r-all'), '4Y', days => {
-  priceView.days = days;
-  mvrvView.days = days;
-  fngView.days = days;
-  drawPrice();
-  drawMVRV();
-  drawFNG();
-  drawLev();
-  drawNet();
-});
+/* A range control per block. The tick-label logic is shared, so every axis still
+   reads in one style; only the windows differ, which is the point — each chart
+   can be examined on its own timescale. Each window is additionally trimmed to
+   where that chart's own data exists, so a series starting in 2018 or 2025 shows
+   a short axis rather than years of blank space before the line begins. */
+rangeButtons($('r-price'), '4Y', d => { priceView.days = d; drawPrice(); });
+rangeButtons($('r-mvrv'),  '4Y', d => { mvrvView.days  = d; drawMVRV();  });
+rangeButtons($('r-fng'),   '4Y', d => { fngView.days   = d; drawFNG();   });
+rangeButtons($('r-lev'),   '1Y', d => { levView.days   = d; drawLev();   });
+rangeButtons($('r-net'),   '4Y', d => { netView.days   = d; drawNet();   });
 </script>

@@ -140,6 +140,7 @@ const payload = {
     hashRate: hashEh.map((v) => round(v, 1)),
     hashRate30: meanOf(hashEh, 30),
     hashRate60: meanOf(hashEh, 60),
+    hashRate200: meanOf(hashEh, 200),
     exchangePct,
     // The raw index swings several points a day; the 30-day mean is what makes
     // the regime readable. Computed here rather than in the browser so the page
