@@ -13,6 +13,7 @@
     --muted:   #5e6a79;
     --accent:  #b8760f;
     --cold:    #2f6fb0;
+    --cool:    #4a9ba8;
     --warm:    #c8811a;
     --hot:     #b33e39;
     --up:      #257a49;
@@ -38,6 +39,8 @@
       --muted:   #8d99ab;
       --accent:  #e0a03a;
       --cold:    #4f8fd0;
+    --cool:    #59b4c4;
+      --cool:   #59b4c4;
       --warm:    #e0a03a;
       --hot:     #d4574f;
       --up:      #3fa96a;
@@ -113,6 +116,7 @@
   .score-block { display: flex; flex-direction: column; gap: 1px; }
   .score-num { font-family: var(--mono); font-size: 52px; font-weight: 500; line-height: 1; letter-spacing: -.03em; }
   .score-label { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .score-sub { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 3px; }
   .price-block { display: flex; flex-direction: column; gap: 1px; margin-left: auto; text-align: right; }
   .price-num { font-family: var(--mono); font-size: 30px; font-weight: 500; letter-spacing: -.02em; }
   .price-chg { font-family: var(--mono); font-size: 13px; }
@@ -144,6 +148,7 @@
     padding: 2px 6px; border-radius: 3px; border: 1px solid var(--hair); background: var(--sunk);
     text-align: center; white-space: nowrap;
   }
+  .rail-note { font-size: 11.5px; color: var(--muted); }
   .divergence { font-size: 13px; line-height: 1.55; color: var(--muted); }
   .divergence b { color: var(--ink); }
   @media (max-width: 640px) {
@@ -165,7 +170,7 @@
   .metric .v { font-family: var(--mono); font-size: 23px; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
   .metric .n { font-size: 12.5px; color: var(--muted); line-height: 1.42; }
   .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
-  .t-cold { background: var(--cold); } .t-cool { background: var(--cold); opacity: .6; }
+  .t-cold { background: var(--cold); } .t-cool { background: var(--cool); }
   .t-neutral { background: var(--muted); } .t-warm { background: var(--warm); } .t-hot { background: var(--hot); }
   .up { color: var(--up); } .down { color: var(--down); }
 
@@ -312,9 +317,10 @@
 
     <div class="thesis-top">
       <div class="score-block">
-        <div class="eyebrow">Cycle score</div>
+        <div class="eyebrow">Cycle position</div>
         <div class="score-num" id="score"></div>
         <div class="score-label" id="scoreLabel"></div>
+        <div class="score-sub" id="scoreSub"></div>
       </div>
       <div class="price-block">
         <div class="eyebrow">Bitcoin</div>
@@ -328,16 +334,27 @@
       <div class="rail-scale">
         <span>Deep value</span><span>Accumulation</span><span>Mid-cycle</span><span>Heating</span><span>Overheated</span>
       </div>
+      <div class="rail-note">Position is this reading's rank against every day since 2011, not the raw average.</div>
     </div>
 
     <div class="board" id="signal-board"></div>
     <div class="divergence" id="divergence"></div>
 
     <div class="info-panel inline" id="score-info" hidden>
-      <h3>How five different signals become one number</h3>
+      <h3 id="calc-heading">How the signals become one number</h3>
       <p>Each signal is a different kind of measurement &mdash; a ratio, a multiple, an index &mdash;
          so they cannot be added up as they stand. Each is rescaled onto a common 0&ndash;100 points
-         scale, and those five point values are averaged. No weighting, no model, nothing fitted.</p>
+         scale and those point values are averaged. No weighting, no model, nothing fitted.</p>
+      <p><b>The average is not the headline.</b> Signals rarely peak together, so averaging them pulls
+         the result toward the middle: backtested, this average read 66.7 at the 2013 top, 66.7 at the
+         2017 top and 63.4 at the 2021 top, and never once crossed 80. Meanwhile 74% of all days sat
+         below 40. A fixed scale on this number is simply miscalibrated. So the headline reports where
+         today's average ranks against every day of its own history, and on that basis all three cycle
+         tops land in the 90th percentile, where they belong.</p>
+      <p class="aside">The limitation, stated rather than hidden: the early years had fewer inputs to
+         average &mdash; Fear &amp; Greed starts in 2018, funding in 2023 &mdash; so a 2013 reading and
+         a 2026 reading are not built from identical evidence. The signal count is shown beside the
+         score for that reason.</p>
       <div id="score-calc"></div>
       <p class="aside">The two middle columns are the <b>scale</b>, not readings. MVRV today is
          <b>1.45</b>; the values beside it are what would score 0 and 100 points. Its 22 points are
@@ -380,7 +397,7 @@
       <div>
         <h2>Bitcoin price, with the moving averages that define trend</h2>
         <p>Daily closes since 2011, with the moving averages most often used to judge trend and
-           cycle position. Log scale by default &mdash; tap the <b>&#8505;</b> to see why that matters.</p>
+           cycle position. Log scale by default &mdash; open the <b>&#8505;</b> to see why that matters.</p>
       </div>
       <button class="info-btn" id="price-info-btn" aria-expanded="false" aria-controls="price-info"
               title="About this chart">&#8505;</button>
@@ -458,7 +475,7 @@
         <p>Market value divided by realised value &mdash; the price every coin last actually moved
            at. It measures how much unrealised profit the whole network is holding, which is the
            closest thing on-chain data has to a valuation. Switch between the raw ratio and its
-           Z-score below; tap the <b>&#8505;</b> for how to read either.</p>
+           Z-score below; open the <b>&#8505;</b> for how to read either.</p>
       </div>
       <button class="info-btn" id="mvrv-info-btn" aria-expanded="false" aria-controls="mvrv-info"
               title="About this chart">&#8505;</button>
@@ -553,7 +570,7 @@
         <h2>Fear &amp; Greed &mdash; market sentiment, 0 to 100</h2>
         <p>A daily composite of volatility, momentum, volume, social activity and dominance,
            published since February 2018 &mdash; the only reading here not calculated from price or the
-           chain. The dial shows today; the chart shows how the mood got here. Tap the
+           chain. The dial shows today; the chart shows how the mood got here. Open the
            <b>&#8505;</b> for what feeds it and why it is partly circular.</p>
       </div>
       <button class="info-btn" id="fng-info-btn" aria-expanded="false" aria-controls="fng-info"
@@ -633,7 +650,7 @@
         <h2>Leverage &mdash; what traders are paying to hold a position</h2>
         <p>The funding rate is the fee perpetual-futures traders pay each other every eight hours.
            It is the cleanest read on whether the crowd is leaning long or short, and how dearly it
-           is paying to do so. Tap the <b>&#8505;</b> for how to size the number.</p>
+           is paying to do so. Open the <b>&#8505;</b> for how to size the number.</p>
       </div>
       <button class="info-btn" id="lev-info-btn" aria-expanded="false" aria-controls="lev-info"
               title="About this chart">&#8505;</button>
@@ -724,7 +741,7 @@
         <h2>Network health &mdash; miner commitment and coins ready to sell</h2>
         <p>Two measures of what participants are doing rather than saying: how much computing power
            miners are willing to run, and how much supply is sitting on exchanges where it could be
-           sold today. The share held on exchanges feeds the cycle score; hashrate is context. Tap the <b>&#8505;</b> for both.</p>
+           sold today. The share held on exchanges feeds the cycle score; hashrate is context. Open the <b>&#8505;</b> for both.</p>
       </div>
       <button class="info-btn" id="net-info-btn" aria-expanded="false" aria-controls="net-info"
               title="About this chart">&#8505;</button>
@@ -836,11 +853,16 @@ const usdS = v =>
   : '$' + v.toFixed(2);   // 2011 prices are cents — don't render them all as $0
 const pct = v => (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + '%';
 const sign = v => v >= 0 ? 'up' : 'down';
+/** 1st, 2nd, 3rd, 62nd — "62th" reads as a bug to anyone who notices it. */
+const ordinal = n => {
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
 
 /* ---------- chart ----------
    A line chart is data values mapped onto pixel coordinates. Written out
    rather than pulled from a library so the mapping stays visible.           */
-function chart({ mount, readout, dates, series, bands = [], yLog = false, yFormat, area = false, zeroFloor = false }) {
+function chart({ mount, readout, dates, series, bands = [], yLog = false, yFormat, area = false, zeroFloor = false, title = '' }) {
   const W = 1000, H = 290, P = { t: 12, r: 62, b: 24, l: 6 };
   const n = dates.length;
   const xs = i => P.l + (i / (n - 1)) * (W - P.l - P.r);
@@ -919,7 +941,7 @@ function chart({ mount, readout, dates, series, bands = [], yLog = false, yForma
 
   const lastIdx = (() => { for (let i = n - 1; i >= 0; i--) if (series[0].values[i] != null) return i; return n - 1; })();
 
-  mount.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${series.map(s => s.label).join(', ')} over time">
+  mount.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title ? title + ': ' : ''}${series.map(s => s.label).join(', ')}${dates.length ? ', ' + dates[0] + ' to ' + dates[dates.length - 1] : ''}">
     ${bands.map(b => {
       const top = ys(Math.min(isFinite(b.to) ? b.to : hi, hi)), bot = ys(Math.max(b.from, lo));
       return `<rect x="${P.l}" y="${top.toFixed(1)}" width="${W - P.l - P.r}" height="${Math.max(0, bot - top).toFixed(1)}" fill="${b.fill}"/>`;
@@ -1065,9 +1087,34 @@ function derive() {
   };
 }
 
+/**
+ * Where a score sits in the distribution of its own history, 0-100.
+ *
+ * Fixed cutoffs on the raw average were miscalibrated: backtested, the score read
+ * 63-67 at every cycle top and never once entered an "overheated" band above 80,
+ * while 74% of all days fell in the two lowest bands. Ranking against history
+ * fixes that — the 2013, 2017 and 2021 tops now land in the 90th percentile.
+ */
+function percentileOf(score) {
+  const d = DATA.cycle.distribution;
+  if (!d || !d.length) return Math.round(score);
+  let p = 0;
+  for (let k = 0; k < d.length; k++) if (score >= d[k]) p = k;
+  return p;
+}
+
+/** The composite's verdict, by rank against history. */
 function scoreLabel(s) {
-  return s < 20 ? 'Deep value' : s < 40 ? 'Accumulation' : s < 60 ? 'Mid-cycle'
-       : s < 80 ? 'Heating up' : 'Overheated';
+  const p = percentileOf(s);
+  return p < 20 ? 'Deep value' : p < 40 ? 'Accumulation' : p < 60 ? 'Mid-cycle'
+       : p < 80 ? 'Heating up' : 'Overheated';
+}
+
+/** A single component's verdict, on its own 0-100 points scale. Deliberately not
+ *  the percentile function: one component's points are not the composite. */
+function levelLabel(v) {
+  return v < 20 ? 'Deep value' : v < 40 ? 'Accumulation' : v < 60 ? 'Mid-cycle'
+       : v < 80 ? 'Heating up' : 'Overheated';
 }
 
 /* ---------- painting ---------- */
@@ -1085,9 +1132,15 @@ function fundingCountdown() {
 function paint() {
   const d = derive();
 
-  $('score').textContent = d.score.toFixed(0);
+  // Named `rank`, not `pct`: pct() is the percentage formatter used throughout
+  // this function, and shadowing it turned every later call into a TypeError.
+  const rank = percentileOf(d.score);
+  $('score').textContent = rank;
   $('scoreLabel').textContent = scoreLabel(d.score);
-  $('marker').style.left = `calc(${Math.max(0, Math.min(100, d.score))}% - 1.5px)`;
+  $('scoreSub').innerHTML =
+    `${ordinal(rank)} percentile of ${(DATA.cycle.historyDays || 0).toLocaleString('en-US')} days ` +
+    `&middot; raw average ${d.score.toFixed(1)} from ${d.parts.length} signals`;
+  $('marker').style.left = `calc(${Math.max(0, Math.min(100, percentileOf(d.score)))}% - 1.5px)`;
   $('price').textContent = usd(d.price);
   $('chg').innerHTML = `<span class="${sign(d.change24h)}">${pct(d.change24h)}</span> 24h`;
   renderBoard(d);
@@ -1100,7 +1153,9 @@ function paint() {
 const fmtRaw = p => p.unit === 'index' ? p.raw.toFixed(0)
                  : p.unit === 'pct' ? p.raw.toFixed(2) + '%'
                  : p.unit === 'bp' ? p.raw.toFixed(2) + ' bp' : p.raw.toFixed(2);
-const bandColor = s => s < 20 ? 'var(--cold)' : s < 40 ? 'var(--cold)'
+// Five levels need five colours. "Deep value" and "Accumulation" previously
+// shared --cold, so two of the five verdicts were indistinguishable at a glance.
+const bandColor = s => s < 20 ? 'var(--cold)' : s < 40 ? 'var(--cool)'
                      : s < 60 ? 'var(--muted)' : s < 80 ? 'var(--warm)' : 'var(--hot)';
 
 /** Each signal's own verdict, so disagreement is visible rather than averaged away. */
@@ -1112,7 +1167,7 @@ function renderBoard(d) {
       <span class="board-read">${fmtRaw(p)}</span>
       <span class="board-bar"><i style="width:${Math.max(2, p.value).toFixed(0)}%;background:${c}"></i></span>
       <span class="board-pts">${p.value.toFixed(0)}</span>
-      <span class="board-verdict" style="color:${c}">${scoreLabel(p.value)}</span>
+      <span class="board-verdict" style="color:${c}">${levelLabel(p.value)}</span>
     </div>`;
   }).join('');
 
@@ -1129,8 +1184,8 @@ function renderBoard(d) {
   const agreement = low.length >= d.parts.length - 1 && outlier.value >= 40
     ? `<b>${low.length} of the ${d.parts.length} signals</b> score below 40 &mdash; accumulation or lower. ` +
       `The exception is <b>${outlier.label}</b> at ${outlier.value.toFixed(0)}, reading ` +
-      `${scoreLabel(outlier.value).toLowerCase()}.`
-    : `The signals are spread across ${new Set(d.parts.map(p => scoreLabel(p.value))).size} different verdicts, ` +
+      `${levelLabel(outlier.value).toLowerCase()}.`
+    : `The signals are spread across ${new Set(d.parts.map(p => levelLabel(p.value))).size} different verdicts, ` +
       `with <b>${outlier.label}</b> furthest from the middle at ${outlier.value.toFixed(0)}.`;
 
   const trust = spread > 8
@@ -1290,7 +1345,7 @@ function drawMVRV() {
   const w = windowFor(mvrvView.days, [v.key]);
   const dates = w.dates;
   chart({
-    mount: $('c-mvrv'), readout: $('ro-mvrv'), dates, area: true,
+    mount: $('c-mvrv'), title: 'MVRV', readout: $('ro-mvrv'), dates, area: true,
     series: [{
       label: v.label, values: S[v.key].slice(w.a, w.b), color: 'var(--accent)', width: 1.6,
       fmt: x => x == null ? '&mdash;' : x.toFixed(2),
@@ -1362,7 +1417,7 @@ function drawPrice() {
     });
   }
   chart({
-    mount: $('c-price'), readout: $('ro-price'), dates,
+    mount: $('c-price'), title: 'Bitcoin price', readout: $('ro-price'), dates,
     yLog: priceView.log, series, yFormat: usdS,
   });
   $('lg-price').innerHTML = series
@@ -1488,7 +1543,7 @@ function drawFNG() {
   if (!series.length) series.push({ label: '30-day average', values: S.fearGreedMa30.slice(w.a, w.b),
     color: 'var(--accent)', width: 1.8, fmt: v => v == null ? '&mdash;' : v.toFixed(0) });
   chart({
-    mount: $('c-fng'), readout: $('ro-fng'), dates, series,
+    mount: $('c-fng'), title: 'Fear and Greed', readout: $('ro-fng'), dates, series,
     bands: [
       { from: -Infinity, to: 26, fill: 'var(--band-cold)' },
       { from: 76, to: Infinity, fill: 'var(--band-hot)' },
@@ -1617,7 +1672,7 @@ function drawLev() {
   if (!series.length) series.push({ label: 'Daily', values: S.funding.slice(w.a, w.b),
     color: 'var(--accent)', width: 1.3, fmt: v => v == null ? '&mdash;' : v.toFixed(2) + ' bp' });
   chart({
-    mount: $('c-lev'), readout: $('ro-lev'), dates, series,
+    mount: $('c-lev'), title: 'Funding rate', readout: $('ro-lev'), dates, series,
     bands: [
       { from: -Infinity, to: 0, fill: 'var(--band-cold)' },
       { from: 5, to: Infinity, fill: 'var(--band-hot)' },
@@ -1714,7 +1769,7 @@ function drawNet() {
           fmt: v => v == null ? '&mdash;' : v.toFixed(2) + '%' },
       ];
   chart({
-    mount: $('c-net'), readout: $('ro-net'), dates, series,
+    mount: $('c-net'), title: 'Network health', readout: $('ro-net'), dates, series,
     zeroFloor: netView.mode === 'exch',
     yFormat: v => netView.mode === 'hash' ? v.toFixed(0) : v.toFixed(1) + '%',
   });

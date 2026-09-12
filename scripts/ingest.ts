@@ -12,7 +12,7 @@ import { fetchDailyRows } from '../lib/sources/coinmetrics.ts';
 import { fetchSnapshot } from '../lib/sources/market.ts';
 import { fetchFearGreedHistory } from '../lib/sources/feargreed.ts';
 import { fetchFundingHistory, fetchOpenInterestHistory } from '../lib/sources/binance.ts';
-import { enrich, cycleScore, scoreLabel, marketCapSd, BANDS } from '../lib/metrics.ts';
+import { enrich, cycleScore, scoreLabel, marketCapSd, ramp, SCORE_BOUNDS, BANDS } from '../lib/metrics.ts';
 
 const round = (v: number | null, dp = 2) =>
   v == null || !Number.isFinite(v) ? null : Number(v.toFixed(dp));
@@ -78,11 +78,55 @@ const meanOf = (arr: (number | null)[], w: number) => arr.map((_, i) => {
 const exchangePct = rows.map((r) =>
   r.exchangeSupply == null ? null : round((r.exchangeSupply / r.supply) * 100, 2));
 
+/**
+ * The same score, computed for every day in history, so today's reading can be
+ * placed in its own distribution.
+ *
+ * This matters more than it sounds. Averaging signals that rarely peak together
+ * pulls the mean toward the middle: backtested, this score read 66.7 at the 2013
+ * top, 66.7 at the 2017 top and 63.4 at the 2021 top, and never once reached the
+ * fixed "overheated" band above 80. Meanwhile 74% of all days fell in the two
+ * lowest bands. Fixed cutoffs on this number are simply miscalibrated, so the
+ * page labels by percentile of history instead.
+ *
+ * Honest limitation, stated on the page: the early years had fewer components to
+ * average (Fear & Greed begins 2018, funding 2023), so a 2013 score and a 2026
+ * score are not built from identical evidence.
+ */
+const B = SCORE_BOUNDS;
+const historicalScores: number[] = [];
+for (let i = 0; i < rows.length; i++) {
+  const r = rows[i];
+  const vals: number[] = [];
+  if (r.mayer != null) vals.push(ramp(r.mayer, ...B.mayer));
+  if (r.mvrvZ != null) vals.push(ramp(r.mvrvZ, ...B.mvrvZ));
+  const fg = fngByDate.get(r.date);
+  if (fg != null) vals.push(ramp(fg, ...B.fearGreed));
+  const fr = fundingByDate.get(r.date);
+  if (fr != null) vals.push(ramp(fr, ...B.funding));
+  if (vals.length >= 2) historicalScores.push(vals.reduce((a, b) => a + b, 0) / vals.length);
+}
+historicalScores.sort((a, b) => a - b);
+
+/** 101 ascending breakpoints: index i is the i-th percentile. */
+const distribution = Array.from({ length: 101 }, (_, k) =>
+  round(historicalScores[Math.min(historicalScores.length - 1, Math.floor((k / 100) * historicalScores.length))], 2));
+
+const percentileOf = (v: number) => {
+  let p = 0;
+  for (let k = 0; k < distribution.length; k++) if (v >= (distribution[k] ?? 0)) p = k;
+  return p;
+};
+
 const payload = {
   generatedAt: new Date().toISOString(),
   asOf: now.date,
   cycle: {
     score: round(score, 1),
+    percentile: percentileOf(score),
+    /** Ascending percentile breakpoints of the score's own history. */
+    distribution,
+    historyDays: historicalScores.length,
     label: scoreLabel(score),
     parts: parts.map((p) => ({ key: p.key, label: p.label, raw: round(p.raw, 3), value: round(p.value, 1), lo: p.lo, hi: p.hi, unit: p.unit })),
   },

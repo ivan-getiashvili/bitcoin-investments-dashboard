@@ -172,6 +172,12 @@ export function readBand(bands: Band[], v: number): Reading {
 /**
  * Composite cycle score, 0 (frozen) to 100 (overheated).
  *
+ * The raw number is not the headline: five signals that rarely peak together
+ * average toward the middle, so a fixed 0-100 band understates extremes badly.
+ * Backtested, this average read 63-67 at every cycle top and never reached the
+ * "overheated" band at all. The page therefore reports where today's score sits
+ * in the distribution of its own history, which is what makes a reading legible.
+ *
  * Deliberately simple and legible: each component is mapped onto 0–100 by a
  * linear ramp between historically meaningful bounds, then averaged over
  * whichever components are available. It is a heuristic, not a prediction, and
@@ -179,7 +185,7 @@ export function readBand(bands: Band[], v: number): Reading {
  */
 export type ScorePart = {
   /** Which live quantity drives it, so the browser can recompute intraday. */
-  key: 'mvrvZ' | 'mayer' | 'funding' | 'exchange' | 'static';
+  key: 'mvrvZ' | 'mayer' | 'funding' | 'static';
   label: string;
   /** The measurement itself, before normalising — shown so the score is auditable. */
   raw: number;
@@ -220,6 +226,15 @@ export const ramp = (v: number, lo: number, hi: number) =>
  * are worth watching, but neither answers "is this expensive?", and adding
  * inputs that do not speak to the question only dilutes the ones that do.
  */
+/** The bounds each component is scored across — one definition, used by both
+ *  today's score and the historical series the percentile is measured against. */
+export const SCORE_BOUNDS = {
+  mayer: [0.7, 2.4] as const,
+  mvrvZ: [0, 7] as const,
+  fearGreed: [0, 100] as const,
+  funding: [-1, 5] as const,
+};
+
 export function cycleScore(row: EnrichedRow, snap: Snapshot): { score: number; parts: ScorePart[] } {
   // Order deliberately mirrors the order of the blocks on the page, so a reader
   // moving down the dashboard meets the signals in the same sequence.
@@ -240,19 +255,19 @@ export function cycleScore(row: EnrichedRow, snap: Snapshot): { score: number; p
     const bp = snap.fundingRate * 10_000;
     parts.push({ key: 'funding', label: 'Funding rate', raw: bp, value: ramp(bp, -1, 5), lo: -1, hi: 5, unit: 'bp' });
   }
-  // Supply sitting on exchanges. Measured against everything else it is the most
-  // independent input on the page — r = -0.07 against MVRV Z, 0.09 against
-  // sentiment — so it genuinely adds evidence rather than echoing it.
+  // Exchange-held supply was tried here and removed. It is genuinely the most
+  // independent series on the page (r = -0.07 against MVRV Z), but independence
+  // is not the same as signal. Backtested against known turning points it called
+  // the 2013 and 2017 tops "maximally cheap" (0 points) and the March 2020 crash
+  // low "maximally hot" (95), because the share carries a strong secular trend —
+  // exchanges grew from nothing to 17% of supply, then shrank as self-custody and
+  // ETFs took over — and a fixed band measures that trend, not the cycle. Scoring
+  // its 90-day change instead fared no better: right at two tops, wrong at three
+  // lows and at the 2021 top. A component that is wrong more often than it is
+  // right does not become useful by being uncorrelated.
   //
-  // Direction: a larger share means more coins parked where they can be sold in
-  // one click, which is the warmer condition; a falling share means coins moving
-  // into storage. Bounds are its own post-2018 range, 11.5% to 17.5%. The honest
-  // caveat, stated on the page: the record high came in March 2020, at a crash
-  // low rather than a top, so this maps to risk less cleanly than the others.
-  if (row.exchangeSupply != null) {
-    const pct = (row.exchangeSupply / row.supply) * 100;
-    parts.push({ key: 'exchange', label: 'Coins on exchanges', raw: pct, value: ramp(pct, 11.5, 17.5), lo: 11.5, hi: 17.5, unit: 'pct' });
-  }
+  // It stays on the page as context in the network block, where direction over
+  // time is readable and no false precision is claimed.
 
   const score = parts.reduce((a, p) => a + p.value, 0) / parts.length;
   return { score, parts };
