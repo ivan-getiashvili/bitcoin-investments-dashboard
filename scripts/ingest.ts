@@ -100,10 +100,17 @@ const payload = {
     fearGreed: fngSeries,
     // The raw index swings several points a day; the 30-day mean is what makes
     // the regime readable. Computed here rather than in the browser so the page
-    // stays a renderer. Only emitted where a full 30-day window exists.
+    // stays a renderer.
+    //
+    // Tolerate a few missing days rather than demanding all 30. The publisher
+    // skipped 2018-04-14..16 and 2024-10-26, and requiring a complete window
+    // turned each of those into a month-long hole in the average: a data gap of
+    // one day became a visible gap of thirty. Averaging 26 of 30 days is a
+    // faithful mean; refusing to average at all is not.
     fearGreedMa30: fngSeries.map((_, i) => {
+      if (fngSeries[i] == null) return null;   // no reading today, no average today
       const w = fngSeries.slice(Math.max(0, i - 29), i + 1).filter((v): v is number => v != null);
-      return w.length === 30 ? round(w.reduce((a, b) => a + b, 0) / 30, 1) : null;
+      return w.length >= 25 ? round(w.reduce((a, b) => a + b, 0) / w.length, 1) : null;
     }),
     realizedPrice: rows.map((r) => round(r.realizedPrice)),
     ma50: rows.map((r) => round(r.ma50)),
