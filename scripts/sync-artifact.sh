@@ -47,6 +47,22 @@ grep -q '<title>' "$OUT.tmp" || { echo "Downloaded page has no <title> — abort
 grep -q 'const DATA = {' "$OUT.tmp" || { echo "Downloaded page has no data blob — aborting." >&2; exit 1; }
 grep -q '"mvrv"' "$OUT.tmp" || { echo "Downloaded page has no metric data — aborting." >&2; exit 1; }
 
+# The live page is now a full HTML document, but the Artifact platform wraps
+# what it is given in its own doctype/head/body. Mirror the body content only,
+# or the artifact ends up with a document nested inside a document.
+python3 - "$OUT.tmp" <<'PYEOF'
+import re, sys, pathlib
+p = pathlib.Path(sys.argv[1]); h = p.read_text()
+m = re.search(r'<body[^>]*>(.*)</body>', h, re.S)
+if m:
+    title = re.search(r'<title>(.*?)</title>', h, re.S)
+    font = re.search(r'<link rel="stylesheet" href="https://fonts\.googleapis\.com[^>]*>', h)
+    head = (f'<title>{title.group(1)}</title>\n' if title else '') + \
+           ((font.group(0) + '\n') if font else '')
+    p.write_text(head + m.group(1).strip() + '\n')
+    print('  extracted body content for the artifact')
+PYEOF
+
 mv "$OUT.tmp" "$OUT"
 echo
 echo "Mirrored $(wc -c < "$OUT" | tr -d ' ') bytes into $OUT"

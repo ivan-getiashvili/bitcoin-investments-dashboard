@@ -82,6 +82,22 @@
     -webkit-font-smoothing: antialiased;
   }
   .page { max-width: 1080px; margin: 0 auto; padding: 32px 22px 56px; display: flex; flex-direction: column; gap: 22px; }
+  @media (max-width: 620px) {
+    .page { padding: 20px 14px 44px; gap: 16px; }
+    h1 { font-size: 23px; }
+    .block-head { padding: 14px 16px 0; gap: 10px; }
+    .block-head h2 { font-size: 14.5px; }
+    .block-head p, .info-panel p, .info-panel li { font-size: 13px; }
+    .thesis { padding: 18px 16px 16px; }
+    .chart-wrap { padding: 6px 10px 4px; }
+    .readout, .legend, .srcline { padding-left: 16px; padding-right: 16px; }
+    .readout { gap: 10px; }
+    .info-panel { padding: 16px 16px 18px; }
+    .info-panel.inline { margin: 6px -16px -16px; }
+    table.calc { font-size: 12px; }
+    table.calc th { font-size: 9px; }
+    table.calc td, table.calc th { padding-right: 6px; }
+  }
 
   /* ---- masthead, folded into the first block so the summary leads the page ---- */
   .masthead-in { display: flex; flex-direction: column; gap: 3px; padding-bottom: 4px;
@@ -149,11 +165,17 @@
     text-align: center; white-space: nowrap;
   }
   .rail-note { font-size: 11.5px; color: var(--muted); }
+  /* Five labels will not fit a phone; they collide into one another. Keep the
+     two ends, which is what the scale actually needs to communicate. */
+  @media (max-width: 560px) { .rail-mid { display: none; } }
   .divergence { font-size: 13px; line-height: 1.55; color: var(--muted); }
   .divergence b { color: var(--ink); }
   @media (max-width: 640px) {
-    .board-row { grid-template-columns: 1fr 56px 40px; }
-    .board-bar, .board-verdict { display: none; }
+    /* Drop the bar and the raw reading, never the verdict: the verdict is the
+       column a reader is actually here for. */
+    .board-row { grid-template-columns: 1fr 42px minmax(92px, auto); padding: 9px 0; }
+    .board-bar, .board-read { display: none; }
+    .board-verdict { font-size: 9.5px; padding: 3px 6px; }
   }
   .score-foot { display: flex; align-items: center; gap: 12px; }
   .part {
@@ -287,6 +309,18 @@
   footer strong { color: var(--ink); font-weight: 600; }
   .srcs { font-family: var(--mono); font-size: 11px; }
 
+  /* Touch targets. 23px controls are fine with a mouse and unusable with a
+     thumb; 36px is the practical floor and what the platform guidelines ask for. */
+  @media (pointer: coarse), (max-width: 620px) {
+    .seg button, .ranges button {
+      min-height: 36px; padding: 7px 12px; font-size: 12px;
+    }
+    .info-btn { width: 38px; height: 38px; font-size: 16px; }
+    .seg { gap: 6px; }
+    .ranges { gap: 6px; }
+    .controls { gap: 10px 14px; padding: 12px 16px 4px; }
+  }
+
   @media (max-width: 620px) {
     .score-num { font-size: 42px; }
     .price-block { margin-left: 0; text-align: left; }
@@ -332,7 +366,7 @@
     <div class="rail">
       <div class="rail-track"><div class="rail-marker" id="marker"></div></div>
       <div class="rail-scale">
-        <span>Deep value</span><span>Accumulation</span><span>Mid-cycle</span><span>Heating</span><span>Overheated</span>
+        <span>Deep value</span><span class="rail-mid">Accumulation</span><span class="rail-mid">Mid-cycle</span><span class="rail-mid">Heating</span><span>Overheated</span>
       </div>
       <div class="rail-note">Position is this reading's rank against every day since 2011, not the raw average.</div>
     </div>
@@ -873,7 +907,21 @@ const ordinal = n => {
    A line chart is data values mapped onto pixel coordinates. Written out
    rather than pulled from a library so the mapping stays visible.           */
 function chart({ mount, readout, dates, series, bands = [], yLog = false, yFormat, area = false, zeroFloor = false, title = '' }) {
-  const W = 1000, H = 290, P = { t: 12, r: 62, b: 24, l: 6 };
+  // An SVG with width:100% scales its whole coordinate system, text and stroke
+  // widths included. On a phone the drawing area is ~293px wide, so a 1000-unit
+  // viewBox shrinks everything to 29% — a 290-unit-tall chart rendered 85px
+  // high with 3px text. Unreadable, and not fixable with CSS alone.
+  //
+  // So the viewBox height is derived from a target *rendered* height, and every
+  // size that should stay constant on screen — axis text, stroke widths — is
+  // multiplied by the same scale factor.
+  const W = 1000;
+  const cw = Math.max(240, mount.clientWidth || W);
+  const k = W / cw;                                   // viewBox units per CSS pixel
+  const targetH = cw < 560 ? 250 : 290;               // rendered height in CSS px
+  const H = Math.round(targetH * k);
+  const axisPx = Math.round(11 * k);                  // ~11px of rendered text
+  const P = { t: 12 * k, r: (cw < 560 ? 40 : 62) * k, b: 26 * k, l: 6 * k };
   const n = dates.length;
   const xs = i => P.l + (i / (n - 1)) * (W - P.l - P.r);
 
@@ -885,7 +933,7 @@ function chart({ mount, readout, dates, series, bands = [], yLog = false, yForma
   // script down with it. Render an honest empty state instead.
   if (!vals.length) {
     mount.innerHTML = `<svg viewBox="0 0 1000 ${H}" role="img" aria-label="No data in this range">
-      <text class="ax" x="500" y="${(H / 2).toFixed(0)}" text-anchor="middle">no data in this range</text>
+      <text class="ax" x="500" y="${(H / 2).toFixed(0)}" text-anchor="middle" font-size="${axisPx}">no data in this range</text>
     </svg>`;
     if (readout) readout.innerHTML = '';
     return;
@@ -956,20 +1004,20 @@ function chart({ mount, readout, dates, series, bands = [], yLog = false, yForma
       const top = ys(Math.min(isFinite(b.to) ? b.to : hi, hi)), bot = ys(Math.max(b.from, lo));
       return `<rect x="${P.l}" y="${top.toFixed(1)}" width="${W - P.l - P.r}" height="${Math.max(0, bot - top).toFixed(1)}" fill="${b.fill}"/>`;
     }).join('')}
-    ${ticks.map(t => `<line class="gl" x1="${P.l}" y1="${ys(t).toFixed(1)}" x2="${W - P.r}" y2="${ys(t).toFixed(1)}"/>
-      <text class="ax" x="${W - P.r + 8}" y="${(ys(t) + 3.5).toFixed(1)}">${yFormat(t)}</text>`).join('')}
+    ${ticks.map(t => `<line class="gl" x1="${P.l}" y1="${ys(t).toFixed(1)}" x2="${W - P.r}" y2="${ys(t).toFixed(1)}" stroke-width="${k}"/>
+      <text class="ax" x="${W - P.r + 7 * k}" y="${(ys(t) + axisPx * 0.35).toFixed(1)}" font-size="${axisPx}">${yFormat(t)}</text>`).join('')}
     ${xTicks.map(({ i, label }) => {
       // Centred text at the edge of the viewBox gets half-clipped, which is why
       // the first label used to render as "022". Anchor edge labels inward.
       const x = xs(i), left = P.l + 26, right = W - P.r - 26;
       const anchor = x < left ? 'start' : x > right ? 'end' : 'middle';
-      return `<text class="ax" x="${x.toFixed(1)}" y="${H - 7}" text-anchor="${anchor}">${label}</text>`;
+      return `<text class="ax" x="${x.toFixed(1)}" y="${H - 7 * k}" text-anchor="${anchor}" font-size="${axisPx}">${label}</text>`;
     }).join('')}
     ${areaPath ? `<path d="${areaPath}" fill="var(--area)"/>` : ''}
-    ${series.map(s => `<path d="${line(s.values)}" fill="none" stroke="${s.color}" stroke-width="${s.width || 1.5}" stroke-linejoin="round" stroke-linecap="round"/>`).join('')}
-    <circle cx="${xs(lastIdx).toFixed(1)}" cy="${ys(series[0].values[lastIdx]).toFixed(1)}" r="3.2" fill="${series[0].color}"/>
+    ${series.map(s => `<path d="${line(s.values)}" fill="none" stroke="${s.color}" stroke-width="${((s.width || 1.5) * k).toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"/>`).join('')}
+    <circle cx="${xs(lastIdx).toFixed(1)}" cy="${ys(series[0].values[lastIdx]).toFixed(1)}" r="${(3.2 * k).toFixed(1)}" fill="${series[0].color}"/>
     <g id="cross" style="display:none">
-      <line y1="${P.t}" y2="${H - P.b}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3"/>
+      <line y1="${P.t}" y2="${H - P.b}" stroke="var(--muted)" stroke-width="${k}" stroke-dasharray="${3 * k} ${3 * k}"/>
     </g>
     <rect x="${P.l}" y="${P.t}" width="${W - P.l - P.r}" height="${H - P.t - P.b}" fill="transparent" id="hit"/>
   </svg>`;
@@ -1323,6 +1371,15 @@ paint();                                    // baked data first — never a blan
 tick();
 setInterval(tick, POLL_MS);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+
+// Chart geometry is computed from the container width, so it has to be redone
+// when that changes — rotating a phone otherwise leaves every chart at the old
+// aspect ratio.
+let resizeTimer;
+addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { drawPrice(); drawMVRV(); drawFNG(); drawLev(); drawNet(); }, 180);
+});
 
 /* ---------- MVRV block ----------
    Two views of the same idea. The ratio is the intuitive one; the Z-score exists

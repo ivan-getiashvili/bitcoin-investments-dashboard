@@ -17,8 +17,33 @@ import { enrich, cycleScore, scoreLabel, marketCapSd, ramp, SCORE_BOUNDS, BANDS 
 const round = (v: number | null, dp = 2) =>
   v == null || !Number.isFinite(v) ? null : Number(v.toFixed(dp));
 
+/**
+ * Source health, recorded rather than assumed.
+ *
+ * Three bugs this project has already shipped had one root: a source the build
+ * machine cannot reach returns nothing, the build succeeds anyway, and the site
+ * degrades silently while working perfectly on a laptop. Binance genuinely does
+ * block CI and CDN IP ranges, so a blanket "fail on any error" would break every
+ * deploy. The distinction that matters is required versus optional.
+ */
+const sourceStatus: Record<string, string> = {};
+
 console.log('Fetching Coin Metrics daily history…');
-const rows = enrich(await fetchDailyRows());
+const rows = enrich(await fetchDailyRows().catch((err) => {
+  console.error(`\nFATAL: Coin Metrics is unreachable — ${(err as Error).message}`);
+  console.error('Every on-chain metric comes from it, so a page built now would be empty.');
+  console.error('Refusing to publish over a working site.\n');
+  process.exit(1);
+}));
+sourceStatus.coinMetrics = 'ok';
+
+// A successful fetch that returns too little is the same failure wearing a
+// disguise: the page would render, look fine, and be wrong.
+if (rows.length < 5000) {
+  console.error(`\nFATAL: Coin Metrics returned only ${rows.length} days; expected 5,000+.`);
+  console.error('That is a truncated response, not a short history. Refusing to publish.\n');
+  process.exit(1);
+}
 console.log(`  ${rows.length} days, ${rows[0].date} → ${rows.at(-1)!.date}`);
 
 console.log('Fetching market snapshot…');
@@ -32,8 +57,10 @@ const fngByDate = new Map<string, number>();
 try {
   for (const p of await fetchFearGreedHistory()) fngByDate.set(p.date, p.value);
   console.log(`  ${fngByDate.size} days of sentiment`);
+  sourceStatus.fearGreed = 'ok';
 } catch (err) {
   console.warn(`  ! Fear & Greed history failed: ${(err as Error).message} — chart will be omitted`);
+  sourceStatus.fearGreed = 'unreachable';
 }
 
 const now = rows.at(-1)!;
@@ -51,8 +78,13 @@ const oiByDate = new Map<string, number>();
 try {
   for (const pt of await fetchFundingHistory(900)) fundingByDate.set(pt.date, pt.value);
   console.log(`  ${fundingByDate.size} days of funding`);
+  sourceStatus.binance = 'ok';
 } catch (err) {
-  console.warn(`  ! funding history failed: ${(err as Error).message}`);
+  // Expected on CI and CDN builders, which Binance blocks by IP. Not fatal:
+  // the page fetches this itself from the visitor's browser.
+  console.warn(`  ! Binance unreachable from this machine (${(err as Error).message.slice(0, 60)})`);
+  console.warn('    Expected on build servers; the browser fetches funding directly.');
+  sourceStatus.binance = 'blocked-from-builder';
 }
 try {
   for (const pt of await fetchOpenInterestHistory()) oiByDate.set(pt.date, pt.value);
@@ -211,6 +243,7 @@ const payload = {
     ma200d: rows.map((r) => round(r.ma200d)),
     ma200w: rows.map((r) => round(r.ma200w)),
   },
+  sourceStatus,
   sources: [
     { name: 'Coin Metrics community API', license: 'CC BY-NC — non-commercial' },
     { name: 'Binance public futures API', license: 'public market data' },
@@ -226,3 +259,4 @@ const kb = (JSON.stringify(payload).length / 1024).toFixed(0);
 console.log(`\nWrote data/btc.json (${kb} KB)`);
 console.log(`  as of ${payload.asOf}  ·  $${payload.latest.price?.toLocaleString('en-US')}`);
 console.log(`  MVRV ${payload.latest.mvrv}  ·  cycle score ${payload.cycle.score} (${payload.cycle.label})`);
+console.log('  sources: ' + Object.entries(sourceStatus).map(([k, v]) => `${k}=${v}`).join('  '));
