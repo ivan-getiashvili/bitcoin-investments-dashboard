@@ -104,6 +104,7 @@ for (let i = 0; i < rows.length; i++) {
   if (fg != null) vals.push(ramp(fg, ...B.fearGreed));
   const fr = fundingByDate.get(r.date);
   if (fr != null) vals.push(ramp(fr, ...B.funding));
+  if (r.hashRibbon != null) vals.push(ramp(r.hashRibbon, ...B.hashRibbon));
   if (vals.length >= 2) historicalScores.push(vals.reduce((a, b) => a + b, 0) / vals.length);
 }
 historicalScores.sort((a, b) => a - b);
@@ -127,7 +128,11 @@ const payload = {
     /** Ascending percentile breakpoints of the score's own history. */
     distribution,
     historyDays: historicalScores.length,
-    label: scoreLabel(score),
+    // From the percentile, not the raw score — the page labels by rank, and a
+    // payload whose own label disagreed with the page would be a trap for
+    // anyone reading btc.json directly.
+    label: (p => p < 20 ? 'Deep value' : p < 40 ? 'Accumulation' : p < 60 ? 'Mid-cycle'
+            : p < 80 ? 'Heating up' : 'Overheated')(percentileOf(score)),
     parts: parts.map((p) => ({ key: p.key, label: p.label, raw: round(p.raw, 3), value: round(p.value, 1), lo: p.lo, hi: p.hi, unit: p.unit })),
   },
   latest: {
@@ -185,6 +190,7 @@ const payload = {
     hashRate30: meanOf(hashEh, 30),
     hashRate60: meanOf(hashEh, 60),
     hashRate200: meanOf(hashEh, 200),
+    hashRibbon: rows.map((r) => round(r.hashRibbon, 2)),
     exchangePct,
     // The raw index swings several points a day; the 30-day mean is what makes
     // the regime readable. Computed here rather than in the browser so the page

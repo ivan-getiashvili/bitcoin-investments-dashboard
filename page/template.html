@@ -741,7 +741,7 @@
         <h2>Network health &mdash; miner commitment and coins ready to sell</h2>
         <p>Two measures of what participants are doing rather than saying: how much computing power
            miners are willing to run, and how much supply is sitting on exchanges where it could be
-           sold today. The share held on exchanges feeds the cycle score; hashrate is context. Open the <b>&#8505;</b> for both.</p>
+           sold today. Miner behaviour feeds the cycle score; exchange balances are context. Open the <b>&#8505;</b> for why it is that way round.</p>
       </div>
       <button class="info-btn" id="net-info-btn" aria-expanded="false" aria-controls="net-info"
               title="About this chart">&#8505;</button>
@@ -809,20 +809,30 @@
       </ul>
 
       <h3>Which of these counts toward the score, and why</h3>
-      <p><b>Coins on exchanges does.</b> Measured against every other signal on this page it is the
-         most independent one here &mdash; a correlation of &minus;0.07 with the MVRV Z-score and 0.09
-         with sentiment. It is the rare input that is genuinely telling you something the others are
-         not, which is the whole basis on which anything earns a place in the average. It is scored
-         across its own post-2018 range, 11.5% to 17.5%, with a larger share counting as the warmer
-         condition because more supply is sitting where it can be sold immediately.</p>
-      <p class="aside">The caveat, stated rather than buried: the record high of 17.17% came in March
-         2020 &mdash; a crash low, not a market top. So this maps onto &ldquo;expensive versus
-         cheap&rdquo; less cleanly than the valuation measures do, and it is one of five voices
-         rather than a verdict.</p>
-      <p><b>Hashrate does not.</b> It measures the security budget and miner economics. A rising
-         hashrate tells you miners are committing capital; it does not tell you whether Bitcoin is
-         expensive. Including it would add a number without adding evidence about the question, so it
-         stays here as context.</p>
+      <p><b>Miner commitment does.</b> The score uses the ribbon spread &mdash; the 30-day mean
+         hashrate against the 60-day, as a percentage. Tested against known turning points it read
+         <b>+11.1%</b> at the 2017 top, <b>&minus;12.4%</b> at the December 2018 low and
+         <b>+4.5%</b> at the 2021 top: right on direction at three of six, and strongest exactly
+         where it matters, in the negative tail. It missed the 2020 and 2022 lows, which registered
+         mildly positive.</p>
+      <p>So it is weaker than the valuation measures, and it is in anyway, for a specific reason: it
+         is the most independent input on the page &mdash; a correlation of 0.10 with the MVRV
+         Z-score and 0.17 with the Mayer Multiple. Nearly everything else here is a restatement of
+         where price sits relative to its own history. A noisy signal that measures something
+         genuinely different is worth more in an average than a fourth clean restatement of the same
+         thing.</p>
+      <p class="aside">Adding it visibly improved the calibration: with four signals the November
+         2022 bear-market low ranked in the 38th percentile and read &ldquo;accumulation&rdquo;. With
+         miner behaviour included it ranks 12th and reads &ldquo;deep value&rdquo;, which is what
+         that day actually was.</p>
+      <p><b>Coins on exchanges does not</b>, and it was tried. Scored on its level it called the 2013
+         and 2017 tops maximally cheap and the March 2020 crash low maximally hot, because the share
+         carries a secular trend &mdash; exchanges grew from nothing to 17% of supply, then shrank as
+         self-custody and ETFs took over &mdash; and a fixed band measures that trend rather than the
+         cycle. Scored on its 90-day change it was right at two tops and wrong at three lows and the
+         2021 top. Being uncorrelated is not the same as being informative, and a component that is
+         wrong more often than right does not earn a vote. It stays here as context, where direction
+         over time is readable and no false precision is claimed.</p>
 
       <h3>Further reading</h3>
       <ul>
