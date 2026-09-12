@@ -11,6 +11,7 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { fetchDailyRows } from '../lib/sources/coinmetrics.ts';
 import { fetchSnapshot } from '../lib/sources/market.ts';
 import { fetchFearGreedHistory } from '../lib/sources/feargreed.ts';
+import { fetchFundingHistory, fetchOpenInterestHistory } from '../lib/sources/binance.ts';
 import { enrich, cycleScore, scoreLabel, marketCapSd, BANDS } from '../lib/metrics.ts';
 
 const round = (v: number | null, dp = 2) =>
@@ -42,7 +43,40 @@ const ret = (days: number) => now.price / back(days).price - 1;
 
 const { score, parts } = cycleScore(now, snap);
 
+// Derivatives history. Funding paginates back years; open interest does not
+// exist beyond ~30 days at this source, which the page states rather than hides.
+console.log('Fetching derivatives history…');
+const fundingByDate = new Map<string, number>();
+const oiByDate = new Map<string, number>();
+try {
+  for (const pt of await fetchFundingHistory(900)) fundingByDate.set(pt.date, pt.value);
+  console.log(`  ${fundingByDate.size} days of funding`);
+} catch (err) {
+  console.warn(`  ! funding history failed: ${(err as Error).message}`);
+}
+try {
+  for (const pt of await fetchOpenInterestHistory()) oiByDate.set(pt.date, pt.value);
+  console.log(`  ${oiByDate.size} days of open interest (source retains ~30)`);
+} catch (err) {
+  console.warn(`  ! open interest history failed: ${(err as Error).message}`);
+}
+
 const fngSeries = rows.map((r) => fngByDate.get(r.date) ?? null);
+const fundingSeries = rows.map((r) => {
+  const v = fundingByDate.get(r.date);
+  return v == null ? null : round(v, 3);
+});
+
+/** Hashrate in exahash, and the 30/60-day means that form the hash ribbons. */
+const hashEh = rows.map((r) => (r.hashRate == null ? null : r.hashRate / 1e6));
+const meanOf = (arr: (number | null)[], w: number) => arr.map((_, i) => {
+  const s = arr.slice(Math.max(0, i - w + 1), i + 1).filter((v): v is number => v != null);
+  return s.length >= Math.ceil(w * 0.8) ? round(s.reduce((a, b) => a + b, 0) / s.length, 1) : null;
+});
+
+/** Exchange-held supply as a share of circulating supply — the interpretable form. */
+const exchangePct = rows.map((r) =>
+  r.exchangeSupply == null ? null : round((r.exchangeSupply / r.supply) * 100, 2));
 
 const payload = {
   generatedAt: new Date().toISOString(),
@@ -98,6 +132,15 @@ const payload = {
     mvrv: rows.map((r) => round(r.mvrv, 3)),
     mvrvZ: rows.map((r) => round(r.mvrvZ, 3)),
     fearGreed: fngSeries,
+    funding: fundingSeries,
+    openInterest: rows.map((r) => {
+      const v = oiByDate.get(r.date);
+      return v == null ? null : round(v, 0);
+    }),
+    hashRate: hashEh.map((v) => round(v, 1)),
+    hashRate30: meanOf(hashEh, 30),
+    hashRate60: meanOf(hashEh, 60),
+    exchangePct,
     // The raw index swings several points a day; the 30-day mean is what makes
     // the regime readable. Computed here rather than in the browser so the page
     // stays a renderer.

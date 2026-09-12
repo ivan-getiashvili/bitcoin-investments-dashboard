@@ -225,6 +225,13 @@
   #range-row { padding: 4px 0 2px; gap: 8px 14px; }
   #range-row .seg { margin-right: -8px; }
   .range-note { font-size: 12px; color: var(--muted); }
+  .side-stat { font-size: 13px; line-height: 1.55; color: var(--muted); }
+  .side-stat .big { font-family: var(--mono); font-size: 27px; font-weight: 500; color: var(--ink);
+                    letter-spacing: -.02em; display: block; margin-bottom: 1px; }
+  .side-stat .cap { font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+                    text-transform: uppercase; color: var(--muted); }
+  .side-stat b { color: var(--ink); }
+  .side-stat hr { border: none; border-top: 1px solid var(--hair); margin: 12px 0; }
 
   .srcline { font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 2px 18px 14px; }
   .srcline a { color: var(--muted); }
@@ -625,6 +632,178 @@
     </div>
   </section>
 
+  <section class="panel" id="lev-block">
+    <div class="block-head">
+      <div>
+        <h2>Leverage &mdash; what traders are paying to hold a position</h2>
+        <p>The funding rate is the fee perpetual-futures traders pay each other every eight hours.
+           It is the cleanest read on whether the crowd is leaning long or short, and how dearly it
+           is paying to do so. Tap the <b>&#8505;</b> for how to size the number.</p>
+      </div>
+      <button class="info-btn" id="lev-info-btn" aria-expanded="false" aria-controls="lev-info"
+              title="About this chart">&#8505;</button>
+    </div>
+
+    <div class="split">
+      <div class="split-main">
+        <div class="chart-wrap"><div id="c-lev"></div></div>
+        <div class="readout" id="ro-lev"></div>
+        <div class="legend" id="lg-lev"></div>
+      </div>
+      <aside class="split-side">
+        <div class="side-stat" id="lev-now"></div>
+      </aside>
+    </div>
+    <div class="srcline" id="lev-src"></div>
+
+    <div class="info-panel" id="lev-info" hidden>
+      <h3>What the funding rate actually is</h3>
+      <p>A perpetual future never expires, so nothing naturally drags its price back to spot. The
+         funding rate does that job: every eight hours, whichever side is crowded pays the other.
+         When the perpetual trades above spot, <b>longs pay shorts</b>. When it trades below,
+         <b>shorts pay longs</b>.</p>
+      <p>So the sign tells you which side is crowded, and the size tells you how much that crowd is
+         willing to pay to stay there.</p>
+
+      <h3>How big is big? Annualise it</h3>
+      <p>The chart is in <b>basis points per settlement</b>, where 1 bp = 0.01%. That sounds like
+         nothing until you remember it is charged three times a day:</p>
+      <ul>
+        <li><code>1 bp &times; 3 &times; 365 &asymp; <b>11% per year</b></code></li>
+        <li>3 bp &asymp; 33% per year &middot; 5 bp &asymp; <b>55% per year</b> &middot; 7 bp &asymp; 77% per year</li>
+      </ul>
+      <p>At 5 bp a leveraged long is paying more than half its position value annually just to keep
+         the trade open. That is why sustained high funding rarely lasts: it is expensive, and the
+         positions paying it are the ones that get liquidated first when price dips.</p>
+
+      <h3>The scale, and what each level has meant</h3>
+      <ul>
+        <li><b>Below 0</b> &mdash; shorts are paying longs. The crowd is positioned bearish. Historically
+            clustered around local lows, because a market where everyone is already short has few
+            sellers left.</li>
+        <li><b>0 to 1 bp</b> &mdash; quiet. 0.01% (1 bp) is the exchange's own baseline rate, so this is
+            as close to neutral as the market gets.</li>
+        <li><b>1 to 3 bp</b> &mdash; a normal, healthy uptrend. Longs pay a modest premium.</li>
+        <li><b>3 to 5 bp</b> &mdash; crowded. 33&ndash;55% annualised is a real cost and signals eager,
+            leveraged buying.</li>
+        <li><b>Above 5 bp</b> &mdash; very crowded. Historically the zone that precedes long squeezes,
+            where a modest price fall liquidates leveraged positions and accelerates the move.</li>
+      </ul>
+      <p class="aside" id="lev-context"></p>
+
+      <h3>Open interest, and why it has no history here</h3>
+      <p>Open interest is the total value of futures positions currently open &mdash; how much money is
+         in the game, as distinct from which way it is leaning. Rising open interest with rising
+         price means new leveraged money entering; rising open interest with flat price means
+         fragility building; a sharp fall usually means positions were liquidated.</p>
+      <p>The exchange only retains about 30 days of it, so this page shows the current value and a
+         short window rather than years. That is a limit of the free source, not an omission.</p>
+
+      <h3>What it cannot tell you</h3>
+      <ul>
+        <li><b>One venue only.</b> This is Binance perpetuals. It is the largest single venue but not
+            the whole market, and offshore and DEX positioning is invisible here.</li>
+        <li><b>Extremes persist.</b> Funding can stay crowded for weeks. It describes positioning, not
+            timing.</li>
+        <li><b>It is a fast signal in a slow dashboard.</b> Everything else here moves over months;
+            funding can flip within a day.</li>
+      </ul>
+
+      <h3>Further reading</h3>
+      <ul>
+        <li><a href="https://www.binance.com/en/support/faq/detail/360033525031" target="_blank" rel="noopener">Binance &mdash; how perpetual funding rates are calculated</a></li>
+        <li><a href="https://academy.binance.com/en/articles/what-are-perpetual-futures-contracts" target="_blank" rel="noopener">Binance Academy &mdash; perpetual futures explained</a></li>
+        <li><a href="https://www.investopedia.com/terms/o/openinterest.asp" target="_blank" rel="noopener">Investopedia &mdash; Open Interest</a></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="panel" id="net-block">
+    <div class="block-head">
+      <div>
+        <h2>Network health &mdash; miner commitment and coins ready to sell</h2>
+        <p>Two measures of what participants are doing rather than saying: how much computing power
+           miners are willing to run, and how much supply is sitting on exchanges where it could be
+           sold today. Neither feeds the cycle score &mdash; tap the <b>&#8505;</b> for why.</p>
+      </div>
+      <button class="info-btn" id="net-info-btn" aria-expanded="false" aria-controls="net-info"
+              title="About this chart">&#8505;</button>
+    </div>
+
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Network view">
+        <span class="seg-label">Show</span>
+        <button type="button" data-net="hash" aria-pressed="true">Hashrate</button>
+        <button type="button" data-net="exch" aria-pressed="false">Coins on exchanges</button>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="split-main">
+        <div class="chart-wrap"><div id="c-net"></div></div>
+        <div class="readout" id="ro-net"></div>
+        <div class="legend" id="lg-net"></div>
+      </div>
+      <aside class="split-side">
+        <div class="side-stat" id="net-now"></div>
+      </aside>
+    </div>
+    <div class="srcline" id="net-src"></div>
+
+    <div class="info-panel" id="net-info" hidden>
+      <h3>Hashrate: the number itself is meaningless</h3>
+      <p>Hashrate is how many guesses per second the whole network makes while mining, measured in
+         exahashes &mdash; and one exahash is a quintillion guesses. Nobody has intuition for
+         &ldquo;1,020 EH/s&rdquo;, and nobody needs it. <b>The level tells you nothing; the direction
+         tells you a lot.</b></p>
+      <p>Mining costs real money in hardware and electricity. Miners only add machines if they expect
+         the coins to be worth more than the power. So a rising hashrate is capital being committed
+         by the people closest to the economics &mdash; revealed preference rather than opinion.</p>
+
+      <h3>How to read it: the 30 and 60-day averages</h3>
+      <p>That is what the two averages on the chart are for. When the <b>30-day average falls below
+         the 60-day</b>, hashrate is dropping rather than merely wobbling: machines are being switched
+         off because they no longer cover their power bill. This is usually called miner
+         capitulation, and historically those crossings clustered near price lows &mdash; the point
+         where the least efficient sellers have already been forced out.</p>
+      <p>The reverse crossing, 30-day back above 60-day, has tended to mark the recovery.</p>
+      <p class="aside">The honest caveat: hashrate <i>follows</i> price. Miners buy machines after
+         profitable periods and switch off after unprofitable ones, so this lags by weeks to months.
+         It confirms; it does not predict.</p>
+
+      <h3>Coins on exchanges: what the percentage means</h3>
+      <p id="net-exch-context"></p>
+      <p>Why it matters: a coin sitting in an exchange wallet can be sold in one click. A coin in
+         self-custody generally cannot &mdash; it has to be moved first, which takes a deliberate act.
+         So the share of supply held on exchanges is a rough measure of <b>how much supply is
+         positioned to sell</b>.</p>
+      <p>A falling line means coins moving off exchanges into private storage, which is usually read
+         as accumulation. A rising line means coins moving toward the place people sell them.
+         Direction matters far more than level.</p>
+      <ul>
+        <li><b>Exchange wallets are identified by heuristics</b>, not by declaration. Labelling is
+            imperfect and providers disagree with each other.</li>
+        <li><b>Custodians and ETFs blur it.</b> Coins held for a spot ETF are not on an exchange but
+            are not self-custodied by an individual either.</li>
+        <li><b>Large moves can be internal.</b> An exchange reshuffling its own wallets can look like
+            a flow that never happened.</li>
+      </ul>
+
+      <h3>Why neither is in the cycle score</h3>
+      <p>Both are genuinely informative, and neither answers the question the score asks, which is
+         &ldquo;is Bitcoin expensive relative to its own history?&rdquo; A rising hashrate does not
+         make Bitcoin cheap or dear. Adding inputs that do not speak to the question would dilute
+         the ones that do, so these are shown as context and kept out of the average.</p>
+
+      <h3>Further reading</h3>
+      <ul>
+        <li><a href="https://academy.glassnode.com/supply/exchange-balances" target="_blank" rel="noopener">Glassnode Academy &mdash; exchange balances</a></li>
+        <li><a href="https://mempool.space/graphs/mining/hashrate-difficulty" target="_blank" rel="noopener">mempool.space &mdash; hashrate and difficulty, charted</a></li>
+        <li><a href="https://academy.binance.com/en/articles/what-is-bitcoin-mining" target="_blank" rel="noopener">Binance Academy &mdash; what mining actually is</a></li>
+      </ul>
+    </div>
+  </section>
+
   <footer>
     <strong>Information only &mdash; not investment advice.</strong> Metrics are heuristics drawn from
     historical patterns; Bitcoin has had four cycles, which is a small sample.
@@ -808,9 +987,8 @@ function derive() {
   const parts = DATA.cycle.parts.map(p => {
     let raw = p.raw;
     if (p.key === 'mvrvZ') raw = mvrvZ;
-    else if (p.key === 'mvrv') raw = mvrv;
     else if (p.key === 'mayer' && mayer != null) raw = mayer;
-    else if (p.key === 'vs200w' && A.ma200w) raw = price / A.ma200w;
+    else if (p.key === 'funding' && funding != null) raw = funding * 10000;
     const value = p.key === 'static' ? p.value : ramp(raw, p.lo, p.hi);
     return { ...p, raw, value };
   });
@@ -853,6 +1031,7 @@ function paint() {
   renderBoard(d);
 
   renderScoreMath(d);
+  if (typeof paintLev === 'function') paintLev();
   paintStatus();
 }
 
@@ -1285,6 +1464,155 @@ drawFNG();
 drawMVRV();
 drawPrice();
 
+/* ---------- leverage block ---------- */
+
+// A function declaration, not a const: paint() runs before this point in the
+// script and calls paintLev(), and a const would still be in its temporal dead
+// zone — which killed the whole script before a single chart drew.
+function annualise(bp) { return bp * 3 * 365 / 100; }   // bp per 8h -> % per year
+
+function drawLev() {
+  const { start, dates } = slice(fngView.days);
+  chart({
+    mount: $('c-lev'), readout: $('ro-lev'), dates,
+    series: [{ label: 'Funding', values: S.funding.slice(start), color: 'var(--accent)', width: 1.5,
+               fmt: v => v == null ? '&mdash;' : v.toFixed(2) + ' bp' }],
+    bands: [
+      { from: -Infinity, to: 0, fill: 'var(--band-cold)' },
+      { from: 5, to: Infinity, fill: 'var(--band-hot)' },
+    ],
+    yFormat: v => v.toFixed(1),
+  });
+  $('lg-lev').innerHTML =
+    '<span><i style="background:var(--accent)"></i>Funding, bp per 8h</span>' +
+    '<span><i style="background:var(--cold)"></i>Below 0 &mdash; shorts paying longs</span>' +
+    '<span><i style="background:var(--hot)"></i>Above 5 bp &mdash; crowded longs</span>';
+}
+
+function paintLev() {
+  const bp = live.funding != null ? live.funding * 10000
+           : (L.fundingRate != null ? L.fundingRate * 10000 : null);
+  const oi = live.oi ?? L.openInterestUsd;
+  const oiPct = oi && A.marketCap ? (oi / A.marketCap) * 100 : null;
+  const mins = live.nextFunding ? Math.max(0, Math.round((live.nextFunding - Date.now()) / 60000)) : null;
+
+  $('lev-now').innerHTML = bp == null ? 'Funding unavailable.' : `
+    <span class="cap">Funding now</span>
+    <span class="big">${bp.toFixed(2)} bp</span>
+    &asymp; <b>${annualise(bp).toFixed(0)}% a year</b> to hold the crowded side.
+    ${bp < 0 ? 'Negative: shorts are paying longs.' : bp < 1 ? 'Near the exchange baseline &mdash; quiet.'
+      : bp < 3 ? 'A normal uptrend premium.' : bp < 5 ? 'Crowded.' : 'Very crowded.'}
+    ${mins != null ? `<br>Next settlement in ${Math.floor(mins / 60)}h ${mins % 60}m.` : ''}
+    <hr>
+    <span class="cap">Open interest</span>
+    <span class="big">${oi == null ? '&mdash;' : '$' + (oi / 1e9).toFixed(2) + 'B'}</span>
+    ${oiPct == null ? '' : `<b>${oiPct.toFixed(2)}%</b> of market value sits in open futures positions.`}`;
+
+  const f = S.funding.filter(v => v != null);
+  if (f.length) {
+    $('lev-context').innerHTML =
+      `For scale, over the ${f.length.toLocaleString('en-US')} days on record here funding has ranged ` +
+      `from <b>${Math.min(...f).toFixed(2)} bp</b> to <b>${Math.max(...f).toFixed(2)} bp</b> ` +
+      `(roughly ${annualise(Math.min(...f)).toFixed(0)}% to ${annualise(Math.max(...f)).toFixed(0)}% a year).`;
+  }
+  $('lev-src').innerHTML =
+    'Source: Binance perpetual futures, public API. Funding is the mean of the three daily ' +
+    `settlements, in basis points. ${f.length.toLocaleString('en-US')} days available; the exchange ` +
+    'retains only about 30 days of open interest, so that figure has no long history here.';
+}
+
+$('lev-info-btn').addEventListener('click', () => {
+  const b = $('lev-info-btn'), open = b.getAttribute('aria-expanded') === 'true';
+  b.setAttribute('aria-expanded', String(!open));
+  $('lev-info').hidden = open;
+});
+
+/* ---------- network health block ---------- */
+
+const netView = { mode: 'hash' };
+
+function drawNet() {
+  const { start, dates } = slice(fngView.days);
+  const series = netView.mode === 'hash'
+    ? [
+        { label: 'Hashrate', values: S.hashRate.slice(start), color: 'var(--muted)', width: 1,
+          fmt: v => v == null ? '&mdash;' : v.toFixed(0) + ' EH/s' },
+        { label: '30-day', values: S.hashRate30.slice(start), color: 'var(--accent)', width: 1.6,
+          fmt: v => v == null ? '&mdash;' : v.toFixed(0) },
+        { label: '60-day', values: S.hashRate60.slice(start), color: 'var(--cold)', width: 1.6,
+          fmt: v => v == null ? '&mdash;' : v.toFixed(0) },
+      ]
+    : [
+        { label: 'On exchanges', values: S.exchangePct.slice(start), color: 'var(--accent)', width: 1.7,
+          fmt: v => v == null ? '&mdash;' : v.toFixed(2) + '%' },
+      ];
+  chart({
+    mount: $('c-net'), readout: $('ro-net'), dates, series,
+    yFormat: v => netView.mode === 'hash' ? v.toFixed(0) : v.toFixed(1) + '%',
+  });
+  $('lg-net').innerHTML = series.map(s =>
+    `<span><i style="background:${s.color}"></i>${s.label}</span>`).join('') +
+    (netView.mode === 'hash'
+      ? '<span style="opacity:.75">30-day below 60-day = miners switching off</span>' : '');
+}
+
+function paintNet() {
+  const h = S.hashRate.filter(v => v != null);
+  const h30 = S.hashRate30.filter(v => v != null).at(-1);
+  const h60 = S.hashRate60.filter(v => v != null).at(-1);
+  const ex = S.exchangePct.filter(v => v != null);
+  const now = ex.at(-1), peak = Math.max(...ex);
+  const peakDate = S.date[S.exchangePct.indexOf(peak)];
+  const ribbon = h30 != null && h60 != null
+    ? (h30 >= h60
+        ? 'The 30-day average sits <b>above</b> the 60-day: miners are still adding capacity.'
+        : 'The 30-day average has fallen <b>below</b> the 60-day &mdash; machines are being switched off.')
+    : '';
+
+  $('net-now').innerHTML = `
+    <span class="cap">Hashrate</span>
+    <span class="big">${h.at(-1).toFixed(0)} <span style="font-size:14px">EH/s</span></span>
+    ${ribbon}
+    <hr>
+    <span class="cap">Coins on exchanges</span>
+    <span class="big">${now.toFixed(2)}%</span>
+    of all mined bitcoin. The peak on record was <b>${peak.toFixed(2)}%</b> in
+    ${peakDate.slice(0, 7)}, so today sits ${now < peak ? 'well below' : 'at'} that mark.`;
+
+  $('net-exch-context').innerHTML =
+    `Today <b>${now.toFixed(2)}%</b> of all mined bitcoin sits in exchange wallets. On its own that ` +
+    `figure means little &mdash; what gives it meaning is its own history: it peaked at ` +
+    `<b>${peak.toFixed(2)}%</b> in ${peakDate.slice(0, 7)} and has fallen fairly steadily since. ` +
+    `So the answer to &ldquo;is ${now.toFixed(1)}% a lot?&rdquo; is: it is near the low end of the ` +
+    `last several years, meaning less supply is sitting somewhere it can be sold immediately than at ` +
+    `almost any point since 2020.`;
+
+  $('net-src').innerHTML =
+    'Source: Coin Metrics community API &mdash; <code>HashRate</code> and <code>SplyExNtv</code> ' +
+    '(CC BY-NC). The 30- and 60-day means and the exchange share of circulating supply are computed ' +
+    `here at ingest. ${h.length.toLocaleString('en-US')} days of hashrate, ` +
+    `${ex.length.toLocaleString('en-US')} days of exchange balances.`;
+}
+
+const netBtns = [...document.querySelectorAll('[data-net]')];
+netBtns.forEach(b => b.addEventListener('click', () => {
+  netView.mode = b.dataset.net;
+  netBtns.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  drawNet();
+}));
+
+$('net-info-btn').addEventListener('click', () => {
+  const b = $('net-info-btn'), open = b.getAttribute('aria-expanded') === 'true';
+  b.setAttribute('aria-expanded', String(!open));
+  $('net-info').hidden = open;
+});
+
+drawLev();
+paintLev();
+drawNet();
+paintNet();
+
+
 /* One range control drives all three charts. Per-chart controls meant the price
    chart could sit on fifteen years while MVRV sat on four, and their axes then
    labelled years against months — one page speaking two languages. Sharing the
@@ -1296,5 +1624,7 @@ rangeButtons($('r-all'), '4Y', days => {
   drawPrice();
   drawMVRV();
   drawFNG();
+  drawLev();
+  drawNet();
 });
 </script>
