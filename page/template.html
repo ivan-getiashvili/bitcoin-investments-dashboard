@@ -186,7 +186,7 @@
 
   /* ---- segmented controls ---- */
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 12px 18px 2px; }
-  .seg { display: flex; gap: 3px; }
+  .seg { display: flex; gap: 3px; flex-wrap: wrap; }   /* four overlay buttons overflow a phone otherwise */
   .seg-label { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); align-self: center; margin-right: 2px; }
   .seg button, .ranges button {
     font-family: var(--mono); font-size: 11px; letter-spacing: .04em; color: var(--muted);
@@ -198,7 +198,7 @@
   .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .seg .sw { width: 10px; height: 2px; border-radius: 2px; flex: none; opacity: .35; }
   .seg button[aria-pressed="true"] .sw { opacity: 1; }
-  .ranges { margin-left: auto; }
+  .ranges { margin-left: auto; flex-wrap: wrap; }
 
   .srcline { font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 2px 18px 14px; }
   .srcline a { color: var(--muted); }
@@ -428,6 +428,78 @@
       </ul>
       <p class="aside">Realised cap was introduced by Nic Carter and Antoine Le Calvez; MVRV and its
          Z-score variant were popularised by Murad Mahmudov and David Puell.</p>
+    </div>
+  </section>
+
+  <section class="panel" id="fng-block">
+    <div class="block-head">
+      <div>
+        <h2>Fear &amp; Greed &mdash; how the market feels</h2>
+        <p>A daily sentiment score from 0 (extreme fear) to 100 (extreme greed), published since
+           February 2018. The only reading here that is not calculated from price or the blockchain.
+           Tap the <b>&#8505;</b> for what goes into it and why that matters.</p>
+      </div>
+      <button class="info-btn" id="fng-info-btn" aria-expanded="false" aria-controls="fng-info"
+              title="About this chart">&#8505;</button>
+    </div>
+
+    <div class="controls">
+      <div class="seg" id="fng-overlays" role="group" aria-label="Overlays"></div>
+      <div class="ranges" id="r-fng"></div>
+    </div>
+
+    <div class="chart-wrap"><div id="c-fng"></div></div>
+    <div class="readout" id="ro-fng"></div>
+    <div class="legend" id="lg-fng"></div>
+    <div class="srcline" id="fng-src"></div>
+
+    <div class="info-panel" id="fng-info" hidden>
+      <h3>What the number is</h3>
+      <p>A single score from 0 to 100 meant to capture how the crypto market is feeling. Low is
+         fearful, high is greedy. The publisher labels the ranges, and those labels are what the
+         shaded zones on the chart use &mdash; they are not thresholds we invented:</p>
+      <ul>
+        <li><b>0&ndash;25</b> Extreme fear &middot; <b>26&ndash;46</b> Fear &middot;
+            <b>47&ndash;54</b> Neutral &middot; <b>55&ndash;75</b> Greed &middot;
+            <b>76&ndash;100</b> Extreme greed</li>
+      </ul>
+      <p>It is built from a weighted mix of inputs the publisher describes as volatility, market
+         momentum and trading volume, social media activity, Bitcoin's share of total crypto market
+         cap, and search trends. The exact weights are the publisher's and are not independently
+         verifiable.</p>
+
+      <h3>How it is meant to be used</h3>
+      <p>As a <b>contrarian</b> gauge. The idea, which the publisher states outright, is that extreme
+         fear tends to appear when an asset is oversold and people are selling irrationally, and
+         extreme greed when a correction is overdue.</p>
+      <p>Historically the extremes have been the informative part: readings at or below 25 have
+         clustered around local and cycle lows, and readings at or above 76 around local tops. The
+         middle of the range says very little.</p>
+      <p class="aside">Turn on the 30-day average. The raw index can swing fifteen points in a week,
+         and single-day readings are mostly noise &mdash; the regime is what matters, not the tick.</p>
+
+      <h3>What it cannot tell you</h3>
+      <ul>
+        <li><b>It is partly circular.</b> Volatility and momentum are price-derived inputs, so a large
+            part of "sentiment is fearful" is really "price fell". It is not an independent signal in
+            the way an on-chain metric is.</li>
+        <li><b>It has no timing precision.</b> The index sat in extreme greed for weeks before some
+            tops and only days before others. It can stay pinned at an extreme far longer than a
+            position can be held against it.</li>
+        <li><b>The methodology is undisclosed and has changed.</b> Weights have been adjusted over the
+            index's life, so a 2018 reading of 80 is not strictly the same measurement as a 2026 one.</li>
+        <li><b>Social inputs can be gamed.</b> Any index reading public posting activity is exposed to
+            coordinated posting and bots.</li>
+        <li><b>Short history.</b> It begins in February 2018, so it has seen one complete cycle and
+            parts of two others &mdash; less history than anything else on this page.</li>
+      </ul>
+
+      <h3>Further reading</h3>
+      <ul>
+        <li><a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" rel="noopener">alternative.me &mdash; the index itself</a> (the publisher, including its own description of the inputs)</li>
+        <li><a href="https://academy.binance.com/en/articles/what-is-the-crypto-fear-and-greed-index" target="_blank" rel="noopener">Binance Academy &mdash; What Is the Crypto Fear &amp; Greed Index?</a></li>
+        <li><a href="https://www.investopedia.com/terms/f/fear-and-greed-index.asp" target="_blank" rel="noopener">Investopedia &mdash; Fear and Greed Index</a> (the original equities version the crypto one is modelled on)</li>
+      </ul>
     </div>
   </section>
 
@@ -886,6 +958,68 @@ $('price-src').innerHTML =
   'Source: daily closes from the Coin Metrics community API (CC BY-NC). Moving averages and ' +
   'realized price are computed from that series at ingest, not by a third party. ' +
   `${S.date.length.toLocaleString('en-US')} daily observations, ${S.date[0]} to ${S.date.at(-1)}.`;
+
+/* ---------- Fear & Greed block ----------
+   Sentiment is the noisiest series on the page, so the 30-day mean is on by
+   default and the raw index is the optional overlay rather than the reverse. */
+
+const FNG_OVERLAYS = [
+  { key: 'fearGreed',      label: 'Daily',  legend: 'Daily index', color: 'var(--muted)',  width: 1, on: false },
+  { key: 'fearGreedMa30',  label: '30D avg', legend: '30-day average', color: 'var(--accent)', width: 1.8, on: true },
+];
+const fngView = { days: 1460, show: Object.fromEntries(FNG_OVERLAYS.map(o => [o.key, o.on])) };
+
+function drawFNG() {
+  const { start, dates } = slice(fngView.days);
+  const series = FNG_OVERLAYS.filter(o => fngView.show[o.key]).map(o => ({
+    label: o.legend, values: S[o.key].slice(start), color: o.color, width: o.width,
+    fmt: v => v == null ? '&mdash;' : v.toFixed(0),
+  }));
+  if (!series.length) series.push({ label: '30-day average', values: S.fearGreedMa30.slice(start),
+    color: 'var(--accent)', width: 1.8, fmt: v => v == null ? '&mdash;' : v.toFixed(0) });
+  chart({
+    mount: $('c-fng'), readout: $('ro-fng'), dates, series,
+    bands: [
+      { from: -Infinity, to: 26, fill: 'var(--band-cold)' },
+      { from: 76, to: Infinity, fill: 'var(--band-hot)' },
+    ],
+    yFormat: v => v.toFixed(0),
+  });
+  $('lg-fng').innerHTML = series.map(s => `<span><i style="background:${s.color}"></i>${s.label}</span>`).join('')
+    + '<span><i style="background:var(--cold)"></i>Extreme fear (&le;25)</span>'
+    + '<span><i style="background:var(--hot)"></i>Extreme greed (&ge;76)</span>';
+}
+
+$('fng-overlays').innerHTML = '<span class="seg-label">Show</span>' + FNG_OVERLAYS.map(o =>
+  `<button type="button" data-fng="${o.key}" aria-pressed="${o.on}">` +
+  `<i class="sw" style="background:${o.color}"></i>${o.label}</button>`).join('');
+$('fng-overlays').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const k = b.dataset.fng;
+  fngView.show[k] = !fngView.show[k];
+  b.setAttribute('aria-pressed', String(fngView.show[k]));
+  drawFNG();
+});
+
+const fngInfoBtn = $('fng-info-btn'), fngInfoPanel = $('fng-info');
+fngInfoBtn.addEventListener('click', () => {
+  const open = fngInfoBtn.getAttribute('aria-expanded') === 'true';
+  fngInfoBtn.setAttribute('aria-expanded', String(!open));
+  fngInfoPanel.hidden = open;
+});
+
+{
+  const have = S.fearGreed.filter(v => v != null);
+  const firstIdx = S.fearGreed.findIndex(v => v != null);
+  $('fng-src').innerHTML =
+    'Source: alternative.me Crypto Fear &amp; Greed Index (free, keyless). Band labels are the ' +
+    'publisher&rsquo;s own; the 30-day average is computed here at ingest. ' +
+    `${have.length.toLocaleString('en-US')} daily readings from ${S.date[firstIdx]} &mdash; ` +
+    'the shortest history on this page.';
+}
+
+rangeButtons($('r-fng'), '4Y', d => { fngView.days = d; drawFNG(); });
+drawFNG();
 
 rangeButtons($('r-mvrv'), '4Y', d => { mvrvView.days = d; drawMVRV(); });
 rangeButtons($('r-price'), 'All', d => { priceView.days = d; drawPrice(); });

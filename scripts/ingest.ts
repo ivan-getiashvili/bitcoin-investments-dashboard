@@ -10,6 +10,7 @@
 import { writeFile, mkdir } from 'node:fs/promises';
 import { fetchDailyRows } from '../lib/sources/coinmetrics.ts';
 import { fetchSnapshot } from '../lib/sources/market.ts';
+import { fetchFearGreedHistory } from '../lib/sources/feargreed.ts';
 import { enrich, cycleScore, scoreLabel, marketCapSd, BANDS } from '../lib/metrics.ts';
 
 const round = (v: number | null, dp = 2) =>
@@ -22,12 +23,26 @@ console.log(`  ${rows.length} days, ${rows[0].date} → ${rows.at(-1)!.date}`);
 console.log('Fetching market snapshot…');
 const snap = await fetchSnapshot();
 
+// Sentiment history starts 2018-02-01, well after the price series, so it is
+// keyed by date and aligned onto the shared axis with nulls before that. Never
+// index-align two series that begin on different days.
+console.log('Fetching Fear & Greed history…');
+const fngByDate = new Map<string, number>();
+try {
+  for (const p of await fetchFearGreedHistory()) fngByDate.set(p.date, p.value);
+  console.log(`  ${fngByDate.size} days of sentiment`);
+} catch (err) {
+  console.warn(`  ! Fear & Greed history failed: ${(err as Error).message} — chart will be omitted`);
+}
+
 const now = rows.at(-1)!;
 const prev = rows.at(-2)!;
 const back = (days: number) => rows[Math.max(0, rows.length - 1 - days)];
 const ret = (days: number) => now.price / back(days).price - 1;
 
 const { score, parts } = cycleScore(now, snap);
+
+const fngSeries = rows.map((r) => fngByDate.get(r.date) ?? null);
 
 const payload = {
   generatedAt: new Date().toISOString(),
@@ -82,6 +97,14 @@ const payload = {
     price: rows.map((r) => round(r.price)),
     mvrv: rows.map((r) => round(r.mvrv, 3)),
     mvrvZ: rows.map((r) => round(r.mvrvZ, 3)),
+    fearGreed: fngSeries,
+    // The raw index swings several points a day; the 30-day mean is what makes
+    // the regime readable. Computed here rather than in the browser so the page
+    // stays a renderer. Only emitted where a full 30-day window exists.
+    fearGreedMa30: fngSeries.map((_, i) => {
+      const w = fngSeries.slice(Math.max(0, i - 29), i + 1).filter((v): v is number => v != null);
+      return w.length === 30 ? round(w.reduce((a, b) => a + b, 0) / 30, 1) : null;
+    }),
     realizedPrice: rows.map((r) => round(r.realizedPrice)),
     ma50: rows.map((r) => round(r.ma50)),
     ma200d: rows.map((r) => round(r.ma200d)),

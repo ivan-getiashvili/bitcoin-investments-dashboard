@@ -5,6 +5,7 @@
  * than failing. None of these carry long history worth shipping to the client.
  */
 import { getJson, tolerate, type Snapshot } from './types.ts';
+import { fetchFearGreedLatest } from './feargreed.ts';
 
 /** Perpetual funding rate — positive means longs pay shorts (bullish crowding). */
 async function fundingRate(): Promise<number> {
@@ -20,11 +21,6 @@ async function openInterestUsd(): Promise<number> {
   return Number(rows[0].sumOpenInterestValue);
 }
 
-async function fearGreed(): Promise<{ value: number; label: string }> {
-  const json = await getJson('https://api.alternative.me/fng/?limit=1');
-  return { value: Number(json.data[0].value), label: json.data[0].value_classification };
-}
-
 /** mempool.space reports hashrate in H/s; we present exahash. */
 async function mining(): Promise<{ hashRateEh: number; difficulty: number }> {
   const json = await getJson('https://mempool.space/api/v1/mining/hashrate/3d');
@@ -36,7 +32,7 @@ async function mining(): Promise<{ hashRateEh: number; difficulty: number }> {
 
 export async function fetchSnapshot(): Promise<Snapshot> {
   const [fng, funding, oi, mine] = await Promise.all([
-    tolerate('Fear & Greed', fearGreed),
+    tolerate('Fear & Greed', fetchFearGreedLatest),
     tolerate('Binance funding rate', fundingRate),
     tolerate('Binance open interest', openInterestUsd),
     tolerate('mempool.space mining', mining),

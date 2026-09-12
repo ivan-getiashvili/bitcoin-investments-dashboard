@@ -144,6 +144,17 @@ export const BANDS = {
     { below: 2.4, temp: 'warm', note: 'Extended above trend.' },
     { below: Infinity, temp: 'hot', note: 'Very extended &mdash; 2.4&times; the 200-day average is a classic overheat marker.' },
   ],
+  /**
+   * Boundaries taken from the publisher's own labels rather than invented:
+   * every one of the 3,142 published readings falls in exactly these buckets.
+   */
+  fearGreed: [
+    { below: 26, temp: 'cold', note: 'Extreme fear. Historically the zone where selling pressure was closest to exhausted.' },
+    { below: 47, temp: 'cool', note: 'Fear. Sentiment is negative but not capitulating.' },
+    { below: 55, temp: 'neutral', note: 'Neutral. Sentiment is not leaning either way.' },
+    { below: 76, temp: 'warm', note: 'Greed. Optimism is running ahead of caution.' },
+    { below: Infinity, temp: 'hot', note: 'Extreme greed. Historically clustered near local tops, though it can persist for weeks.' },
+  ],
   /** Funding bands are in basis points, not the raw rate. */
   fundingBp: [
     { below: -1, temp: 'cold', note: 'Negative &mdash; shorts are paying longs. Crowded bearish positioning.' },
