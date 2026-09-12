@@ -644,6 +644,10 @@
               title="About this chart">&#8505;</button>
     </div>
 
+    <div class="controls">
+      <div class="seg" id="lev-overlays" role="group" aria-label="Smoothing"></div>
+    </div>
+
     <div class="split">
       <div class="split-main">
         <div class="chart-wrap"><div id="c-lev"></div></div>
@@ -724,7 +728,7 @@
         <h2>Network health &mdash; miner commitment and coins ready to sell</h2>
         <p>Two measures of what participants are doing rather than saying: how much computing power
            miners are willing to run, and how much supply is sitting on exchanges where it could be
-           sold today. Neither feeds the cycle score &mdash; tap the <b>&#8505;</b> for why.</p>
+           sold today. The share held on exchanges feeds the cycle score; hashrate is context. Tap the <b>&#8505;</b> for both.</p>
       </div>
       <button class="info-btn" id="net-info-btn" aria-expanded="false" aria-controls="net-info"
               title="About this chart">&#8505;</button>
@@ -789,11 +793,21 @@
             a flow that never happened.</li>
       </ul>
 
-      <h3>Why neither is in the cycle score</h3>
-      <p>Both are genuinely informative, and neither answers the question the score asks, which is
-         &ldquo;is Bitcoin expensive relative to its own history?&rdquo; A rising hashrate does not
-         make Bitcoin cheap or dear. Adding inputs that do not speak to the question would dilute
-         the ones that do, so these are shown as context and kept out of the average.</p>
+      <h3>Which of these counts toward the score, and why</h3>
+      <p><b>Coins on exchanges does.</b> Measured against every other signal on this page it is the
+         most independent one here &mdash; a correlation of &minus;0.07 with the MVRV Z-score and 0.09
+         with sentiment. It is the rare input that is genuinely telling you something the others are
+         not, which is the whole basis on which anything earns a place in the average. It is scored
+         across its own post-2018 range, 11.5% to 17.5%, with a larger share counting as the warmer
+         condition because more supply is sitting where it can be sold immediately.</p>
+      <p class="aside">The caveat, stated rather than buried: the record high of 17.17% came in March
+         2020 &mdash; a crash low, not a market top. So this maps onto &ldquo;expensive versus
+         cheap&rdquo; less cleanly than the valuation measures do, and it is one of five voices
+         rather than a verdict.</p>
+      <p><b>Hashrate does not.</b> It measures the security budget and miner economics. A rising
+         hashrate tells you miners are committing capital; it does not tell you whether Bitcoin is
+         expensive. Including it would add a number without adding evidence about the question, so it
+         stays here as context.</p>
 
       <h3>Further reading</h3>
       <ul>
@@ -828,7 +842,7 @@ const sign = v => v >= 0 ? 'up' : 'down';
 /* ---------- chart ----------
    A line chart is data values mapped onto pixel coordinates. Written out
    rather than pulled from a library so the mapping stays visible.           */
-function chart({ mount, readout, dates, series, bands = [], yLog = false, yFormat, area = false }) {
+function chart({ mount, readout, dates, series, bands = [], yLog = false, yFormat, area = false, zeroFloor = false }) {
   const W = 1000, H = 290, P = { t: 12, r: 62, b: 24, l: 6 };
   const n = dates.length;
   const xs = i => P.l + (i / (n - 1)) * (W - P.l - P.r);
@@ -842,6 +856,10 @@ function chart({ mount, readout, dates, series, bands = [], yLog = false, yForma
   // negative values — a negative price on the axis reads as a broken chart.
   const pad = (hi - lo) * 0.04;
   if (!yLog) { hi += pad; lo = lo < 0 ? lo - pad : Math.max(0, lo - pad); }
+  // Some series are only meaningful against zero. A share-of-supply line
+  // auto-scaled to 12.6-16.6% looks like an arbitrary window and hides how
+  // small the quantity actually is; anchoring the floor at zero restores that.
+  if (zeroFloor && !yLog) lo = 0;
   const tf = yLog ? Math.log10 : (v => v);
   const [tlo, thi] = [tf(lo), tf(hi)];
   const ys = v => P.t + (1 - (tf(v) - tlo) / (thi - tlo)) * (H - P.t - P.b);
@@ -998,10 +1016,11 @@ function derive() {
   // let the score silently average three things while the explainer says four.
   if (funding != null && !parts.some(p => p.key === 'funding')) {
     const bp = funding * 10000;
-    parts.push({
-      key: 'funding', label: 'Funding rate', raw: bp,
-      value: ramp(bp, -1, 5), lo: -1, hi: 5, unit: 'bp',
-    });
+    const exchIdx = parts.findIndex(p => p.key === 'exchange');
+    const row = { key: 'funding', label: 'Funding rate', raw: bp,
+                  value: ramp(bp, -1, 5), lo: -1, hi: 5, unit: 'bp' };
+    // keep page order: funding belongs before the network component
+    if (exchIdx >= 0) parts.splice(exchIdx, 0, row); else parts.push(row);
   }
 
   return {
@@ -1046,7 +1065,9 @@ function paint() {
   paintStatus();
 }
 
-const fmtRaw = p => p.unit === 'index' ? p.raw.toFixed(0) : p.raw.toFixed(2);
+const fmtRaw = p => p.unit === 'index' ? p.raw.toFixed(0)
+                 : p.unit === 'pct' ? p.raw.toFixed(2) + '%'
+                 : p.unit === 'bp' ? p.raw.toFixed(2) + ' bp' : p.raw.toFixed(2);
 const bandColor = s => s < 20 ? 'var(--cold)' : s < 40 ? 'var(--cold)'
                      : s < 60 ? 'var(--muted)' : s < 80 ? 'var(--warm)' : 'var(--hot)';
 
@@ -1519,6 +1540,17 @@ async function loadFundingHistory(pages = 3) {
     filled++;
     return Math.round((vs.reduce((a, b) => a + b, 0) / vs.length) * 1000) / 1000;
   });
+
+  // Day-to-day funding is mostly noise: it can swing a full basis point on a
+  // single session. The trailing means are what make the positioning regime
+  // legible, so they are the default and the raw series is the overlay.
+  const mean = (w) => S.funding.map((_, i) => {
+    const win = S.funding.slice(Math.max(0, i - w + 1), i + 1).filter(v => v != null);
+    return win.length >= Math.ceil(w * 0.6)
+      ? Math.round((win.reduce((a, b) => a + b, 0) / win.length) * 1000) / 1000 : null;
+  });
+  S.funding7 = mean(7);
+  S.funding30 = mean(30);
   return filled;
 }
 
@@ -1531,12 +1563,23 @@ let fundingDays = S.funding.filter(v => v != null).length;
 
 function annualise(bp) { return bp * 3 * 365 / 100; }   // bp per 8h -> % per year
 
+const LEV_OVERLAYS = [
+  { key: 'funding',   label: 'Daily',   legend: 'Daily',          color: 'var(--muted)',  width: 0.9, on: false },
+  { key: 'funding7',  label: '7D avg',  legend: '7-day average',  color: 'var(--maShort)', width: 1.3, on: false },
+  { key: 'funding30', label: '30D avg', legend: '30-day average', color: 'var(--accent)', width: 1.8, on: true },
+];
+const levView = { show: Object.fromEntries(LEV_OVERLAYS.map(o => [o.key, o.on])) };
+
 function drawLev() {
   const { start, dates } = slice(fngView.days);
+  const series = LEV_OVERLAYS.filter(o => levView.show[o.key] && S[o.key]).map(o => ({
+    label: o.legend, values: S[o.key].slice(start), color: o.color, width: o.width,
+    fmt: v => v == null ? '&mdash;' : v.toFixed(2) + ' bp',
+  }));
+  if (!series.length) series.push({ label: 'Daily', values: S.funding.slice(start),
+    color: 'var(--accent)', width: 1.3, fmt: v => v == null ? '&mdash;' : v.toFixed(2) + ' bp' });
   chart({
-    mount: $('c-lev'), readout: $('ro-lev'), dates,
-    series: [{ label: 'Funding', values: S.funding.slice(start), color: 'var(--accent)', width: 1.5,
-               fmt: v => v == null ? '&mdash;' : v.toFixed(2) + ' bp' }],
+    mount: $('c-lev'), readout: $('ro-lev'), dates, series,
     bands: [
       { from: -Infinity, to: 0, fill: 'var(--band-cold)' },
       { from: 5, to: Infinity, fill: 'var(--band-hot)' },
@@ -1544,7 +1587,7 @@ function drawLev() {
     yFormat: v => v.toFixed(1),
   });
   $('lg-lev').innerHTML =
-    '<span><i style="background:var(--accent)"></i>Funding, bp per 8h</span>' +
+    series.map(s => `<span><i style="background:${s.color}"></i>${s.label}</span>`).join('') +
     '<span><i style="background:var(--cold)"></i>Below 0 &mdash; shorts paying longs</span>' +
     '<span><i style="background:var(--hot)"></i>Above 5 bp &mdash; crowded longs</span>';
 }
@@ -1586,6 +1629,17 @@ function paintLev() {
       'that did load.';
 }
 
+$('lev-overlays').innerHTML = '<span class="seg-label">Show</span>' + LEV_OVERLAYS.map(o =>
+  `<button type="button" data-lev="${o.key}" aria-pressed="${o.on}">` +
+  `<i class="sw" style="background:${o.color}"></i>${o.label}</button>`).join('');
+$('lev-overlays').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const k = b.dataset.lev;
+  levView.show[k] = !levView.show[k];
+  b.setAttribute('aria-pressed', String(levView.show[k]));
+  drawLev();
+});
+
 $('lev-info-btn').addEventListener('click', () => {
   const b = $('lev-info-btn'), open = b.getAttribute('aria-expanded') === 'true';
   b.setAttribute('aria-expanded', String(!open));
@@ -1613,6 +1667,7 @@ function drawNet() {
       ];
   chart({
     mount: $('c-net'), readout: $('ro-net'), dates, series,
+    zeroFloor: netView.mode === 'exch',
     yFormat: v => netView.mode === 'hash' ? v.toFixed(0) : v.toFixed(1) + '%',
   });
   $('lg-net').innerHTML = series.map(s =>

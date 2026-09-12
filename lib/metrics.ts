@@ -179,7 +179,7 @@ export function readBand(bands: Band[], v: number): Reading {
  */
 export type ScorePart = {
   /** Which live quantity drives it, so the browser can recompute intraday. */
-  key: 'mvrvZ' | 'mayer' | 'funding' | 'static';
+  key: 'mvrvZ' | 'mayer' | 'funding' | 'exchange' | 'static';
   label: string;
   /** The measurement itself, before normalising — shown so the score is auditable. */
   raw: number;
@@ -188,7 +188,7 @@ export type ScorePart = {
   lo: number;
   hi: number;
   /** How to render `raw`, since these are ratios, multiples and plain indices. */
-  unit: 'ratio' | 'index' | 'bp';
+  unit: 'ratio' | 'index' | 'bp' | 'pct';
 };
 
 export const ramp = (v: number, lo: number, hi: number) =>
@@ -221,13 +221,15 @@ export const ramp = (v: number, lo: number, hi: number) =>
  * inputs that do not speak to the question only dilutes the ones that do.
  */
 export function cycleScore(row: EnrichedRow, snap: Snapshot): { score: number; parts: ScorePart[] } {
+  // Order deliberately mirrors the order of the blocks on the page, so a reader
+  // moving down the dashboard meets the signals in the same sequence.
   const parts: ScorePart[] = [];
 
-  if (row.mvrvZ != null) {
-    parts.push({ key: 'mvrvZ', label: 'MVRV Z-score', raw: row.mvrvZ, value: ramp(row.mvrvZ, 0, 7), lo: 0, hi: 7, unit: 'ratio' });
-  }
   if (row.mayer != null) {
     parts.push({ key: 'mayer', label: 'Mayer Multiple', raw: row.mayer, value: ramp(row.mayer, 0.7, 2.4), lo: 0.7, hi: 2.4, unit: 'ratio' });
+  }
+  if (row.mvrvZ != null) {
+    parts.push({ key: 'mvrvZ', label: 'MVRV Z-score', raw: row.mvrvZ, value: ramp(row.mvrvZ, 0, 7), lo: 0, hi: 7, unit: 'ratio' });
   }
   if (snap.fearGreed) {
     parts.push({ key: 'static', label: 'Fear & Greed', raw: snap.fearGreed.value, value: snap.fearGreed.value, lo: 0, hi: 100, unit: 'index' });
@@ -237,6 +239,19 @@ export function cycleScore(row: EnrichedRow, snap: Snapshot): { score: number; p
     // short; 5bp sustained has marked crowded long positioning.
     const bp = snap.fundingRate * 10_000;
     parts.push({ key: 'funding', label: 'Funding rate', raw: bp, value: ramp(bp, -1, 5), lo: -1, hi: 5, unit: 'bp' });
+  }
+  // Supply sitting on exchanges. Measured against everything else it is the most
+  // independent input on the page — r = -0.07 against MVRV Z, 0.09 against
+  // sentiment — so it genuinely adds evidence rather than echoing it.
+  //
+  // Direction: a larger share means more coins parked where they can be sold in
+  // one click, which is the warmer condition; a falling share means coins moving
+  // into storage. Bounds are its own post-2018 range, 11.5% to 17.5%. The honest
+  // caveat, stated on the page: the record high came in March 2020, at a crash
+  // low rather than a top, so this maps to risk less cleanly than the others.
+  if (row.exchangeSupply != null) {
+    const pct = (row.exchangeSupply / row.supply) * 100;
+    parts.push({ key: 'exchange', label: 'Coins on exchanges', raw: pct, value: ramp(pct, 11.5, 17.5), lo: 11.5, hi: 17.5, unit: 'pct' });
   }
 
   const score = parts.reduce((a, p) => a + p.value, 0) / parts.length;
