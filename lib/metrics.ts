@@ -181,9 +181,14 @@ export type ScorePart = {
   /** Which live quantity drives it, so the browser can recompute intraday. */
   key: 'mvrvZ' | 'mvrv' | 'mayer' | 'vs200w' | 'static';
   label: string;
+  /** The measurement itself, before normalising — shown so the score is auditable. */
+  raw: number;
+  /** The measurement mapped onto 0-100 by a linear ramp between lo and hi. */
   value: number;
   lo: number;
   hi: number;
+  /** How to render `raw`, since these are ratios, multiples and plain indices. */
+  unit: 'ratio' | 'index';
 };
 
 export const ramp = (v: number, lo: number, hi: number) =>
@@ -191,14 +196,20 @@ export const ramp = (v: number, lo: number, hi: number) =>
 
 export function cycleScore(row: EnrichedRow, snap: Snapshot): { score: number; parts: ScorePart[] } {
   const parts: ScorePart[] = [
-    { key: 'mvrv', label: 'MVRV', value: ramp(row.mvrv, 0.8, 3.7), lo: 0.8, hi: 3.7 },
+    { key: 'mvrv', label: 'MVRV', raw: row.mvrv, value: ramp(row.mvrv, 0.8, 3.7), lo: 0.8, hi: 3.7, unit: 'ratio' },
   ];
   if (row.mvrvZ != null) {
-    parts.unshift({ key: 'mvrvZ', label: 'MVRV Z-score', value: ramp(row.mvrvZ, 0, 7), lo: 0, hi: 7 });
+    parts.unshift({ key: 'mvrvZ', label: 'MVRV Z-score', raw: row.mvrvZ, value: ramp(row.mvrvZ, 0, 7), lo: 0, hi: 7, unit: 'ratio' });
   }
-  if (row.mayer != null) parts.push({ key: 'mayer', label: 'Mayer Multiple', value: ramp(row.mayer, 0.7, 2.4), lo: 0.7, hi: 2.4 });
-  if (row.ma200w != null) parts.push({ key: 'vs200w', label: 'Price vs 200w MA', value: ramp(row.price / row.ma200w, 1, 5), lo: 1, hi: 5 });
-  if (snap.fearGreed) parts.push({ key: 'static', label: 'Fear & Greed', value: snap.fearGreed.value, lo: 0, hi: 100 });
+  if (row.mayer != null) {
+    parts.push({ key: 'mayer', label: 'Mayer Multiple', raw: row.mayer, value: ramp(row.mayer, 0.7, 2.4), lo: 0.7, hi: 2.4, unit: 'ratio' });
+  }
+  if (row.ma200w != null) {
+    parts.push({ key: 'vs200w', label: 'Price vs 200-week MA', raw: row.price / row.ma200w, value: ramp(row.price / row.ma200w, 1, 5), lo: 1, hi: 5, unit: 'ratio' });
+  }
+  if (snap.fearGreed) {
+    parts.push({ key: 'static', label: 'Fear & Greed', raw: snap.fearGreed.value, value: snap.fearGreed.value, lo: 0, hi: 100, unit: 'index' });
+  }
 
   const score = parts.reduce((a, p) => a + p.value, 0) / parts.length;
   return { score, parts };

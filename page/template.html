@@ -128,6 +128,7 @@
   }
   .rail-scale { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
   .parts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .score-foot { display: flex; align-items: center; gap: 12px; }
   .part {
     font-family: var(--mono); font-size: 11px; padding: 3px 8px; border-radius: 3px;
     background: var(--sunk); border: 1px solid var(--hair); color: var(--muted);
@@ -213,6 +214,27 @@
   .info-panel a { color: var(--accent); text-underline-offset: 2px; }
   .info-panel .aside { color: var(--muted); font-size: 12.5px; }
   .info-panel code { font-family: var(--mono); font-size: 12px; background: var(--surface); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--hair); }
+
+  /* ---- sentiment gauge ---- */
+  .gauge-row { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; padding: 14px 18px 0; }
+  .gauge-row svg { width: min(250px, 100%); height: auto; flex: 0 1 250px; }  /* fixed px overflowed a narrow phone */
+  .gauge-note { font-size: 13px; line-height: 1.55; color: var(--muted); max-width: 46ch; }
+  .gauge-note b { color: var(--ink); }
+  .gauge-val { fill: var(--ink); font-family: var(--mono); font-size: 34px; font-weight: 500; }
+  .gauge-name { fill: var(--ink); font-family: var(--sans); font-size: 13px; font-weight: 600; }
+  .gauge-end { fill: var(--muted); font-family: var(--mono); font-size: 10px; }
+
+  /* ---- how the score is built ---- */
+  .info-panel.inline { margin: 6px -24px -18px; border-radius: 0 0 4px 4px; }
+  table.calc { width: 100%; border-collapse: collapse; margin: 4px 0 12px; font-size: 12.5px; }
+  table.calc th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--muted); font-weight: 500; padding: 0 10px 6px 0;
+    border-bottom: 1px solid var(--line); }
+  table.calc td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--hair);
+    font-variant-numeric: tabular-nums; }
+  table.calc td.num, table.calc th.num { font-family: var(--mono); text-align: right; padding-right: 0; }
+  table.calc tfoot td { border-bottom: none; border-top: 1px solid var(--line); font-weight: 600; color: var(--ink); }
+  table.calc .bar { display: inline-block; height: 3px; border-radius: 2px; background: var(--accent); vertical-align: middle; margin-right: 7px; }
 
   footer { color: var(--muted); font-size: 12px; line-height: 1.65; border-top: 1px solid var(--line); padding-top: 16px; }
   footer strong { color: var(--ink); font-weight: 600; }
@@ -332,6 +354,48 @@
       </div>
     </div>
     <div class="parts" id="parts"></div>
+
+    <div class="score-foot">
+      <button class="info-btn" id="score-info-btn" aria-expanded="false" aria-controls="score-info"
+              title="How this score is calculated">&#8505;</button>
+      <span class="gauge-note">Five measurements, each rescaled to 0&ndash;100 and averaged.
+        Open the <b>&#8505;</b> for today's actual arithmetic.</span>
+    </div>
+
+    <div class="info-panel inline" id="score-info" hidden>
+      <h3>How this number is calculated</h3>
+      <p>There is no model here and nothing is fitted. Five measurements are each rescaled onto a
+         0&ndash;100 range using fixed bounds, and then plainly averaged. That is the whole method,
+         and the table below is today's actual arithmetic &mdash; it updates with the live price.</p>
+      <div id="score-calc"></div>
+      <p>Each row is rescaled by where the measurement sits between its two bounds. MVRV is scored
+         across 0.8 to 3.7, so an MVRV of 1.45 lands
+         <code>(1.45 &minus; 0.8) &divide; (3.7 &minus; 0.8) = 22%</code> of the way up, giving 22
+         points. Anything at or below the low bound scores 0; at or above the high bound, 100.</p>
+
+      <h3>Where the bounds come from</h3>
+      <p>They are judgement calls anchored to previous cycles, not derived constants. The high bound
+         of each is roughly where that metric sat at past cycle peaks &mdash; MVRV near 3.7, the Z-score
+         near 7, the Mayer Multiple near 2.4. The low bounds are roughly where they sat at cycle lows.
+         With four cycles of history, these are reasonable reference points and nothing stronger.</p>
+
+      <h3>What is wrong with it &mdash; honestly</h3>
+      <ul>
+        <li><b>Equal weighting is a choice, not a finding.</b> Fear &amp; Greed counts exactly as much
+            as MVRV here, despite being sentiment rather than a balance-sheet measure, and despite
+            being partly derived from price itself. Look at today's table: the on-chain rows are all
+            in the single digits or low twenties while sentiment is the outlier pulling the average
+            up. One component is doing a lot of work.</li>
+        <li><b>The components are correlated.</b> MVRV, the Z-score and the Mayer Multiple all rise
+            when price rises. Averaging them is closer to counting the same thing three times than to
+            combining independent evidence.</li>
+        <li><b>It is descriptive, not predictive.</b> A low score says today looks like previous
+            accumulation phases on these measures. It says nothing about what happens next, and every
+            threshold rests on four events.</li>
+      </ul>
+      <p class="aside">The labels: below 20 deep value, 20&ndash;40 accumulation, 40&ndash;60 mid-cycle,
+         60&ndash;80 heating up, above 80 overheated.</p>
+    </div>
   </section>
 
   <div class="panel"><div class="metrics" id="metrics"></div></div>
@@ -441,6 +505,11 @@
       </div>
       <button class="info-btn" id="fng-info-btn" aria-expanded="false" aria-controls="fng-info"
               title="About this chart">&#8505;</button>
+    </div>
+
+    <div class="gauge-row">
+      <div id="fng-gauge"></div>
+      <div class="gauge-note" id="fng-now"></div>
     </div>
 
     <div class="controls">
@@ -580,7 +649,13 @@ function chart({ mount, readout, dates, series, bands = [], yLog = false, yForma
     }).join('')}
     ${ticks.map(t => `<line class="gl" x1="${P.l}" y1="${ys(t).toFixed(1)}" x2="${W - P.r}" y2="${ys(t).toFixed(1)}"/>
       <text class="ax" x="${W - P.r + 8}" y="${(ys(t) + 3.5).toFixed(1)}">${yFormat(t)}</text>`).join('')}
-    ${years.map(({ i, y }) => `<text class="ax" x="${xs(i).toFixed(1)}" y="${H - 7}" text-anchor="middle">${y}</text>`).join('')}
+    ${years.map(({ i, y }) => {
+      // Centred text at the very edge of the viewBox gets half-clipped, which is
+      // why the first year rendered as "022". Anchor edge labels inward instead.
+      const x = xs(i), left = P.l + 14, right = W - P.r - 14;
+      const anchor = x < left ? 'start' : x > right ? 'end' : 'middle';
+      return `<text class="ax" x="${x.toFixed(1)}" y="${H - 7}" text-anchor="${anchor}">${y}</text>`;
+    }).join('')}
     ${areaPath ? `<path d="${areaPath}" fill="var(--area)"/>` : ''}
     ${series.map(s => `<path d="${line(s.values)}" fill="none" stroke="${s.color}" stroke-width="${s.width || 1.5}" stroke-linejoin="round" stroke-linecap="round"/>`).join('')}
     <circle cx="${xs(lastIdx).toFixed(1)}" cy="${ys(series[0].values[lastIdx]).toFixed(1)}" r="3.2" fill="${series[0].color}"/>
@@ -662,12 +737,13 @@ function derive() {
   const funding = live.funding ?? L.fundingRate;
 
   const parts = DATA.cycle.parts.map(p => {
-    let value = p.value;
-    if (p.key === 'mvrvZ') value = ramp(mvrvZ, p.lo, p.hi);
-    else if (p.key === 'mvrv') value = ramp(mvrv, p.lo, p.hi);
-    else if (p.key === 'mayer' && mayer != null) value = ramp(mayer, p.lo, p.hi);
-    else if (p.key === 'vs200w' && A.ma200w) value = ramp(price / A.ma200w, p.lo, p.hi);
-    return { ...p, value };
+    let raw = p.raw;
+    if (p.key === 'mvrvZ') raw = mvrvZ;
+    else if (p.key === 'mvrv') raw = mvrv;
+    else if (p.key === 'mayer' && mayer != null) raw = mayer;
+    else if (p.key === 'vs200w' && A.ma200w) raw = price / A.ma200w;
+    const value = p.key === 'static' ? p.value : ramp(raw, p.lo, p.hi);
+    return { ...p, raw, value };
   });
 
   return {
@@ -736,7 +812,32 @@ function paint() {
       <div class="n">${c.n}</div>
     </div>`).join('');
 
+  renderScoreMath(d);
   paintStatus();
+}
+
+/** The score, shown as the arithmetic it actually is. */
+function renderScoreMath(d) {
+  const fmtRaw = p => p.unit === 'index' ? p.raw.toFixed(0) : p.raw.toFixed(2);
+  const rows = d.parts.map(p => `
+    <tr>
+      <td>${p.label}</td>
+      <td class="num">${fmtRaw(p)}</td>
+      <td class="num">${p.lo} &ndash; ${p.hi}</td>
+      <td class="num"><span class="bar" style="width:${(p.value * 0.5).toFixed(0)}px"></span>${p.value.toFixed(0)}</td>
+    </tr>`).join('');
+  $('score-calc').innerHTML = `
+    <table class="calc">
+      <thead><tr>
+        <th>Component</th><th class="num">Today</th>
+        <th class="num">Scored across</th><th class="num">Points (0&ndash;100)</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td colspan="3">Average of the ${d.parts.length} components</td>
+        <td class="num">${d.score.toFixed(1)} &rarr; ${scoreLabel(d.score)}</td>
+      </tr></tfoot>
+    </table>`;
 }
 
 function paintStatus() {
@@ -874,6 +975,13 @@ mvrvBtns.forEach(b => b.addEventListener('click', () => {
   drawMVRV();
 }));
 
+const scoreInfoBtn = $('score-info-btn'), scoreInfoPanel = $('score-info');
+scoreInfoBtn.addEventListener('click', () => {
+  const open = scoreInfoBtn.getAttribute('aria-expanded') === 'true';
+  scoreInfoBtn.setAttribute('aria-expanded', String(!open));
+  scoreInfoPanel.hidden = open;
+});
+
 const mvrvInfoBtn = $('mvrv-info-btn'), mvrvInfoPanel = $('mvrv-info');
 mvrvInfoBtn.addEventListener('click', () => {
   const open = mvrvInfoBtn.getAttribute('aria-expanded') === 'true';
@@ -958,6 +1066,71 @@ $('price-src').innerHTML =
   'Source: daily closes from the Coin Metrics community API (CC BY-NC). Moving averages and ' +
   'realized price are computed from that series at ingest, not by a third party. ' +
   `${S.date.length.toLocaleString('en-US')} daily observations, ${S.date[0]} to ${S.date.at(-1)}.`;
+
+/* ---------- sentiment gauge ----------
+   Colour runs cool-to-hot in the contrarian direction the rest of this page
+   uses: the fear end is green because that is when buying was historically
+   rewarded, the greed end red because that is when risk was highest. Note this
+   is the opposite of the publisher's own dial, which colours greed green. */
+
+const FNG_BANDS = [
+  { to: 26,  name: 'Extreme fear',  color: '#2f8f57' },
+  { to: 47,  name: 'Fear',          color: '#86a23c' },
+  { to: 55,  name: 'Neutral',       color: '#c9a227' },
+  { to: 76,  name: 'Greed',         color: '#d4802a' },
+  { to: 100, name: 'Extreme greed', color: '#c0453f' },
+];
+const fngBandOf = v => FNG_BANDS.find(b => v < b.to) ?? FNG_BANDS[FNG_BANDS.length - 1];
+
+function fngGauge(value) {
+  const W = 260, H = 190, cx = 130, cy = 122, R = 110, r = 80;
+  const pt = (v, rad) => {
+    const th = Math.PI - (Math.max(0, Math.min(100, v)) / 100) * Math.PI;
+    return [cx + rad * Math.cos(th), cy - rad * Math.sin(th)];
+  };
+  const seg = (a, b, fill) => {
+    const [x1, y1] = pt(a, R), [x2, y2] = pt(b, R), [x3, y3] = pt(b, r), [x4, y4] = pt(a, r);
+    return `<path d="M${x1.toFixed(1)} ${y1.toFixed(1)} A${R} ${R} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)} ` +
+           `L${x3.toFixed(1)} ${y3.toFixed(1)} A${r} ${r} 0 0 0 ${x4.toFixed(1)} ${y4.toFixed(1)} Z" fill="${fill}"/>`;
+  };
+  let prev = 0, arcs = '';
+  for (const b of FNG_BANDS) { arcs += seg(prev, b.to, b.color); prev = b.to; }
+  const band = fngBandOf(value);
+  const [nx, ny] = pt(value, R - 6);
+  const [bx, by] = pt(value, r - 16);
+
+  return `<svg viewBox="0 0 ${W} ${H}" role="img"
+      aria-label="Fear and Greed index at ${Math.round(value)} out of 100, ${band.name}">
+    ${arcs}
+    <line x1="${bx.toFixed(1)}" y1="${by.toFixed(1)}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}"
+          stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="7" fill="var(--ink)"/>
+    <circle cx="${cx}" cy="${cy}" r="3" fill="var(--surface)"/>
+    <text class="gauge-end" x="${cx - R}" y="${cy + 15}" text-anchor="start">0 &middot; fear</text>
+    <text class="gauge-end" x="${cx + R}" y="${cy + 15}" text-anchor="end">greed &middot; 100</text>
+    <text class="gauge-val"  x="${cx}" y="${cy + 48}" text-anchor="middle">${Math.round(value)}</text>
+    <text class="gauge-name" x="${cx}" y="${cy + 68}" text-anchor="middle">${band.name}</text>
+  </svg>`;
+}
+
+function paintGauge() {
+  // Use the snapshot reading, not the series tail. The series is aligned to the
+  // price axis, which ends at the last settled on-chain day, so its last point
+  // can be a day behind — and a gauge showing 56 beside a score table using 63
+  // is the kind of quiet contradiction that makes a reader distrust everything.
+  const today = L.fearGreed?.value ?? S.fearGreed.filter(v => v != null).at(-1);
+  const avg30 = S.fearGreedMa30.filter(v => v != null).at(-1);
+  if (today == null) { $('fng-gauge').innerHTML = ''; return; }
+  $('fng-gauge').innerHTML = fngGauge(today);
+  const band = fngBandOf(today), avgBand = fngBandOf(avg30);
+  $('fng-now').innerHTML =
+    `Today the index reads <b>${today}</b> &mdash; <b>${band.name.toLowerCase()}</b>. ` +
+    `The 30-day average is <b>${avg30.toFixed(0)}</b>, which is ${avgBand.name.toLowerCase()} territory ` +
+    `and the more reliable read of the two.<br><span style="opacity:.8">Colour runs green at the fear ` +
+    `end and red at the greed end, matching how the rest of this page treats risk. The index's own ` +
+    `dial colours it the other way round.</span>`;
+}
+paintGauge();
 
 /* ---------- Fear & Greed block ----------
    Sentiment is the noisiest series on the page, so the 30-day mean is on by

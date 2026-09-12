@@ -50,7 +50,7 @@ const payload = {
   cycle: {
     score: round(score, 1),
     label: scoreLabel(score),
-    parts: parts.map((p) => ({ key: p.key, label: p.label, value: round(p.value, 1), lo: p.lo, hi: p.hi })),
+    parts: parts.map((p) => ({ key: p.key, label: p.label, raw: round(p.raw, 3), value: round(p.value, 1), lo: p.lo, hi: p.hi, unit: p.unit })),
   },
   latest: {
     price: round(now.price),
