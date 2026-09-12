@@ -221,7 +221,10 @@
   .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .seg .sw { width: 10px; height: 2px; border-radius: 2px; flex: none; opacity: .35; }
   .seg button[aria-pressed="true"] .sw { opacity: 1; }
-  .ranges { margin-left: auto; flex-wrap: wrap; }
+  .ranges { margin-left: 0; flex-wrap: wrap; }
+  #range-row { padding: 4px 0 2px; gap: 8px 14px; }
+  #range-row .seg { margin-right: -8px; }
+  .range-note { font-size: 12px; color: var(--muted); }
 
   .srcline { font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 2px 18px 14px; }
   .srcline a { color: var(--muted); }
@@ -320,6 +323,14 @@
       </div>
     </div>
 
+    <div class="controls" id="range-row">
+      <div class="seg" role="group" aria-label="Time range">
+        <span class="seg-label">Time range</span>
+      </div>
+      <div class="ranges" id="r-all"></div>
+      <span class="range-note">Applies to every chart on the page, so the axes always match.</span>
+    </div>
+
     <div class="board" id="signal-board"></div>
     <div class="divergence" id="divergence"></div>
 
@@ -383,7 +394,6 @@
         <button type="button" data-scale="linear" aria-pressed="false">Linear</button>
       </div>
       <div class="seg" id="price-overlays" role="group" aria-label="Overlays"></div>
-      <div class="ranges" id="r-price"></div>
     </div>
 
     <div class="chart-wrap"><div id="c-price"></div></div>
@@ -441,18 +451,6 @@
     </div>
   </section>
 
-  <section class="panel">
-    <div class="block-head">
-      <div>
-        <h2>Every current reading, and where it sits historically</h2>
-        <p>The full set of metrics behind the summary above. Each shows today&rsquo;s value and a
-           plain-English note on what that level has meant in past cycles. Figures marked with a
-           daily close are intraday estimates recomputed from the live price.</p>
-      </div>
-    </div>
-    <div class="metrics" id="metrics"></div>
-  </section>
-
   <section class="panel" id="mvrv-block">
     <div class="block-head">
       <div>
@@ -472,7 +470,6 @@
         <button type="button" data-mvrv="ratio" aria-pressed="true">Ratio</button>
         <button type="button" data-mvrv="z" aria-pressed="false">Z-score</button>
       </div>
-      <div class="ranges" id="r-mvrv"></div>
     </div>
 
     <div class="chart-wrap"><div id="c-mvrv"></div></div>
@@ -566,7 +563,6 @@
       <div class="split-main">
         <div class="controls">
           <div class="seg" id="fng-overlays" role="group" aria-label="Overlays"></div>
-          <div class="ranges" id="r-fng"></div>
         </div>
         <div class="chart-wrap"><div id="c-fng"></div></div>
         <div class="readout" id="ro-fng"></div>
@@ -856,34 +852,6 @@ function paint() {
   $('chg').innerHTML = `<span class="${sign(d.change24h)}">${pct(d.change24h)}</span> 24h`;
   renderBoard(d);
 
-  const mvrvRead = readBand(B.mvrv, d.mvrv);
-  const zRead = readBand(B.mvrvZ, d.mvrvZ);
-  const mayerRead = d.mayer == null ? null : readBand(B.mayer, d.mayer);
-  const fundRead = d.funding == null ? null : readBand(B.fundingBp, d.funding * 10000);
-
-  const cells = [
-    { k: 'MVRV ratio', v: d.mvrv.toFixed(2), read: mvrvRead, n: mvrvRead.note + closeNote(L.mvrv.toFixed(2)) },
-    { k: 'MVRV Z-score', v: d.mvrvZ.toFixed(2), read: zRead, n: zRead.note + closeNote(L.mvrvZ.toFixed(2)) },
-    { k: 'Realized price', v: usd(d.realizedPrice), n: `Network cost basis. Price is ${pct(d.price / d.realizedPrice - 1)} above it.` },
-    mayerRead && { k: 'Mayer multiple', v: d.mayer.toFixed(2), read: mayerRead, n: mayerRead.note },
-    A.ma200w && { k: '200-week MA', v: usd(A.ma200w), n: `Historical cycle floor. Price is ${pct(d.price / A.ma200w - 1)} above it.` },
-    { k: 'Drawdown from ATH', v: pct(d.drawdown), n: `All-time high ${usd(d.ath)}.` },
-    { k: 'Returns', v: `<span class="${sign(L.returns.d7)}">${pct(L.returns.d7)}</span> <span class="est">7d</span>`,
-      n: `30d <span class="${sign(L.returns.d30)}">${pct(L.returns.d30)}</span> &middot; 1y <span class="${sign(L.returns.d365)}">${pct(L.returns.d365)}</span>` },
-    L.fearGreed && { k: 'Fear &amp; Greed', v: L.fearGreed.value, n: L.fearGreed.label + ' &middot; updates once a day' },
-    fundRead && { k: 'Funding rate', v: (d.funding * 10000).toFixed(2) + ' bp', read: fundRead, n: fundRead.note + fundingCountdown() },
-    d.oi != null && { k: 'Open interest', v: '$' + (d.oi / 1e9).toFixed(2) + 'B', n: 'Notional value of open BTC perpetual positions on Binance.' },
-    L.exchangeSupply != null && { k: 'On exchanges', v: (L.exchangeSupply / 1e6).toFixed(2) + 'M BTC', n: `${(L.exchangeSupply / 21e6 * 100).toFixed(1)}% of the 21M cap sits on exchanges.` },
-    L.hashRateEh != null && { k: 'Hashrate', v: L.hashRateEh.toFixed(0) + ' EH/s', n: 'Security budget. Rising hashrate means miners keep committing capital.' },
-  ].filter(Boolean);
-
-  $('metrics').innerHTML = cells.map(c => `
-    <div class="metric">
-      <div class="k">${c.read ? `<span class="dot t-${c.read.temp}"></span>` : ''}${c.k}</div>
-      <div class="v">${c.v}</div>
-      <div class="n">${c.n}</div>
-    </div>`).join('');
-
   renderScoreMath(d);
   paintStatus();
 }
@@ -1130,7 +1098,7 @@ const OVERLAYS = [
 ];
 
 const priceView = {
-  days: Infinity,
+  days: 1460,
   log: true,                      // log by default: five orders of magnitude of history
   show: Object.fromEntries(OVERLAYS.map(o => [o.key, true])),
 };
@@ -1312,11 +1280,21 @@ fngInfoBtn.addEventListener('click', () => {
     'the shortest history on this page.';
 }
 
-rangeButtons($('r-fng'), '4Y', d => { fngView.days = d; drawFNG(); });
 drawFNG();
 
-rangeButtons($('r-mvrv'), '4Y', d => { mvrvView.days = d; drawMVRV(); });
-rangeButtons($('r-price'), 'All', d => { priceView.days = d; drawPrice(); });
 drawMVRV();
 drawPrice();
+
+/* One range control drives all three charts. Per-chart controls meant the price
+   chart could sit on fifteen years while MVRV sat on four, and their axes then
+   labelled years against months — one page speaking two languages. Sharing the
+   window makes the axes identical by construction rather than by coincidence. */
+rangeButtons($('r-all'), '4Y', days => {
+  priceView.days = days;
+  mvrvView.days = days;
+  fngView.days = days;
+  drawPrice();
+  drawMVRV();
+  drawFNG();
+});
 </script>
