@@ -38,12 +38,19 @@ jobs:
         run: npm run build:site
 
       # A failed fetch must never publish a blank page over a working one.
+      # Check structure, never copy. An earlier version grepped for the page's
+      # headline text and blocked the deploy the day that headline was reworded
+      # — a guard that fails on an intended edit trains you to ignore it.
       - name: Verify the build produced a real page
         run: |
           test -s _site/index.html || { echo "index.html missing or empty"; exit 1; }
-          grep -q 'Bitcoin Cycle Position' _site/index.html || { echo "page title missing"; exit 1; }
-          grep -q '"CapMVRVCur"\|"mvrv"' _site/index.html || { echo "no metric data baked in"; exit 1; }
-          echo "index.html: $(wc -c < _site/index.html) bytes"
+          bytes=$(wc -c < _site/index.html)
+          [ "$bytes" -gt 100000 ] || { echo "index.html is only $bytes bytes - data did not bake in"; exit 1; }
+          grep -q '<title>' _site/index.html || { echo "no <title> - template did not render"; exit 1; }
+          grep -q 'const DATA = {' _site/index.html || { echo "no data blob baked into the page"; exit 1; }
+          grep -q '"mvrv"' _site/index.html || { echo "metric series missing from the payload"; exit 1; }
+          test -s _site/live.json || { echo "live.json missing"; exit 1; }
+          echo "index.html: $bytes bytes - structure checks passed"
 
       # Hostinger's Git integration serves the repo contents verbatim — it runs
       # no build. So we publish the BUILT site to its own branch, whose root is
