@@ -336,20 +336,100 @@
 
   <div class="panel"><div class="metrics" id="metrics"></div></div>
 
-  <div class="panel">
-    <div class="chart-head">
-      <h2>MVRV ratio</h2>
-      <p>Market cap divided by realized cap. Shaded zones mark historically meaningful extremes.</p>
+  <section class="panel" id="mvrv-block">
+    <div class="block-head">
+      <div>
+        <h2>MVRV &mdash; is the market paying more than holders paid?</h2>
+        <p>Market value against the price every coin last actually changed hands at. The single
+           most-watched gauge of how much unrealised profit the network is sitting on.
+           Tap the <b>&#8505;</b> for what it means and how to read it.</p>
+      </div>
+      <button class="info-btn" id="mvrv-info-btn" aria-expanded="false" aria-controls="mvrv-info"
+              title="About this chart">&#8505;</button>
+    </div>
+
+    <div class="controls">
+      <div class="seg" role="group" aria-label="MVRV view">
+        <span class="seg-label">View</span>
+        <button type="button" data-mvrv="ratio" aria-pressed="true">Ratio</button>
+        <button type="button" data-mvrv="z" aria-pressed="false">Z-score</button>
+      </div>
       <div class="ranges" id="r-mvrv"></div>
     </div>
+
     <div class="chart-wrap"><div id="c-mvrv"></div></div>
     <div class="readout" id="ro-mvrv"></div>
-    <div class="legend">
-      <span><i style="background:var(--accent)"></i>MVRV</span>
-      <span><i style="background:var(--cold)"></i>Below 1.0 &mdash; under cost basis</span>
-      <span><i style="background:var(--hot)"></i>Above 3.7 &mdash; historically frothy</span>
+    <div class="legend" id="lg-mvrv"></div>
+    <div class="srcline" id="mvrv-src"></div>
+
+    <div class="info-panel" id="mvrv-info" hidden>
+      <h3>What MVRV actually compares</h3>
+      <p>There are two ways to put a value on the whole Bitcoin network, and MVRV is the ratio
+         between them.</p>
+      <ul>
+        <li><b>Market value</b> &mdash; today's price multiplied by every coin in existence. What the
+            market says the network is worth right now.</li>
+        <li><b>Realised value</b> &mdash; take every coin individually, value it at the price it last
+            moved on-chain, and add those up. Roughly what the network collectively paid for its
+            coins: an aggregate cost basis.</li>
+      </ul>
+      <p>MVRV is the first divided by the second. An MVRV of <b>2.0</b> means the average coin is
+         worth twice what it last changed hands for &mdash; the network is holding 100% unrealised
+         profit. An MVRV <b>below 1.0</b> means the average holder is underwater.</p>
+      <p>Why anyone cares: unrealised profit is the fuel for selling. When almost everyone is deep in
+         profit there is a lot of incentive to take some, which is the condition that has historically
+         existed near tops. When most coins are held at a loss, the sellers have largely already sold
+         &mdash; the condition near bottoms.</p>
+
+      <h3>Reading the chart</h3>
+      <p>The shaded zones mark levels that mattered historically. In <b>Ratio</b> view:</p>
+      <ul>
+        <li><b>Below 1.0</b> (blue) &mdash; the average holder is underwater. Every such period so far
+            has been a bear-market low.</li>
+        <li><b>1.0&ndash;1.5</b> &mdash; accumulation. Modest profit, no froth.</li>
+        <li><b>1.5&ndash;2.4</b> &mdash; mid-cycle.</li>
+        <li><b>2.4&ndash;3.7</b> &mdash; elevated; late-cycle territory in past bull markets.</li>
+        <li><b>Above 3.7</b> (red) &mdash; historically frothy. Readings here clustered near tops.</li>
+      </ul>
+
+      <h3>Why there is a Z-score version</h3>
+      <p>The raw ratio has a problem: its extremes have shrunk each cycle as the market matured.
+         The 2013 peak reached 4.7, but the 2021 peak only 2.8 &mdash; so "above 3.7 means a top"
+         quietly stopped being true.</p>
+      <p>The <b>Z-score</b> rescales the gap between market and realised value by how volatile market
+         cap has been up to that point, which makes different eras comparable. On this data the 2013
+         peak scores <b>7.2</b> and the 2017 peak <b>8.6</b>, while the November 2022 low scores
+         <b>&minus;0.3</b>. Above roughly 7 has meant a cycle peak; below 0 has meant a cycle bottom.</p>
+      <p class="aside">Note what the Z-score chart shows about the last two cycles: each peak has been
+         markedly lower than the one before it (8.6, then 3.4). Whether that is Bitcoin maturing or
+         simply two data points is genuinely unsettled.</p>
+
+      <h3>What it cannot tell you</h3>
+      <ul>
+        <li><b>Four cycles is a tiny sample.</b> Every threshold on this page is a description of four
+            events, not a law. Treat them as context, not signals.</li>
+        <li><b>Realised value counts any movement as a purchase.</b> When a coin moves between wallets
+            or onto an exchange, its cost basis resets to that day's price even though nobody bought
+            anything. Heavy on-chain activity therefore drags realised value up on its own.</li>
+        <li><b>Lost coins distort it.</b> Coins from the earliest years that will never move again are
+            still valued at a few cents, holding realised value down and MVRV up. Estimates of how
+            much supply is permanently lost vary widely, and none of them are in this number.</li>
+        <li><b>It says nothing about timing.</b> MVRV sat in "frothy" territory for months before the
+            2017 top and for weeks before the 2021 one.</li>
+      </ul>
+
+      <h3>Further reading</h3>
+      <ul>
+        <li><a href="https://docs.glassnode.com/guides-and-tutorials/metric-guides/mvrv" target="_blank" rel="noopener">Glassnode &mdash; MVRV metric guide</a></li>
+        <li><a href="https://docs.glassnode.com/guides-and-tutorials/metric-guides/mvrv/mvrv-z-score" target="_blank" rel="noopener">Glassnode &mdash; MVRV Z-Score</a></li>
+        <li><a href="https://academy.glassnode.com/market/mvrv/realized-price" target="_blank" rel="noopener">Glassnode Academy &mdash; Realised Price</a> (the cost-basis idea underneath all of this)</li>
+        <li><a href="https://www.lookintobitcoin.com/charts/mvrv-zscore/" target="_blank" rel="noopener">LookIntoBitcoin &mdash; MVRV Z-Score chart</a> (for comparing against another implementation)</li>
+        <li><a href="https://docs.coinmetrics.io/asset-metrics/market/capmvrvcur" target="_blank" rel="noopener">Coin Metrics &mdash; <code>CapMVRVCur</code></a> (the exact metric this page uses)</li>
+      </ul>
+      <p class="aside">Realised cap was introduced by Nic Carter and Antoine Le Calvez; MVRV and its
+         Z-score variant were popularised by Murad Mahmudov and David Puell.</p>
     </div>
-  </div>
+  </section>
 
   <footer>
     <strong>Information only &mdash; not investment advice.</strong> Metrics are heuristics drawn from
@@ -382,7 +462,9 @@ function chart({ mount, readout, dates, series, bands = [], yLog = false, yForma
 
   const vals = series.flatMap(s => s.values).filter(v => v != null && (!yLog || v > 0));
   let lo = Math.min(...vals), hi = Math.max(...vals);
-  bands.forEach(b => { if (b.from > 0 || !yLog) lo = Math.min(lo, b.from); if (isFinite(b.to)) hi = Math.max(hi, b.to); });
+  // Bands are decoration clipped to the data range; they never stretch the axis.
+  // Forcing a distant threshold into view (a 3.7 band over a series sitting at 1.4)
+  // flattens the line you actually came to read. The range control supplies context.
   // Pad the range slightly, but never below zero for a series that has no
   // negative values — a negative price on the axis reads as a broken chart.
   const pad = (hi - lo) * 0.04;
@@ -662,18 +744,78 @@ tick();
 setInterval(tick, POLL_MS);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
 
-function drawMVRV(days) {
-  const { start, dates } = slice(days);
+/* ---------- MVRV block ----------
+   Two views of the same idea. The ratio is the intuitive one; the Z-score exists
+   because the ratio's extremes have shrunk each cycle, so a fixed "3.7 means a
+   top" threshold quietly stopped holding. Each view carries its own bands and
+   legend so the shading always matches what is actually plotted. */
+
+const MVRV_VIEWS = {
+  ratio: {
+    key: 'mvrv', label: 'MVRV ratio',
+    bands: [
+      { from: 0, to: 1, fill: 'var(--band-cold)' },
+      { from: 3.7, to: Infinity, fill: 'var(--band-hot)' },
+    ],
+    legend: [
+      ['var(--accent)', 'MVRV ratio'],
+      ['var(--cold)', 'Below 1.0 &mdash; average holder underwater'],
+      ['var(--hot)', 'Above 3.7 &mdash; historically frothy'],
+    ],
+  },
+  z: {
+    key: 'mvrvZ', label: 'MVRV Z-score',
+    bands: [
+      { from: -Infinity, to: 0, fill: 'var(--band-cold)' },
+      { from: 7, to: Infinity, fill: 'var(--band-hot)' },
+    ],
+    legend: [
+      ['var(--accent)', 'MVRV Z-score'],
+      ['var(--cold)', 'Below 0 &mdash; cycle-bottom territory'],
+      ['var(--hot)', 'Above 7 &mdash; cycle-peak territory'],
+    ],
+  },
+};
+
+const mvrvView = { days: 1460, mode: 'ratio' };
+
+function drawMVRV() {
+  const v = MVRV_VIEWS[mvrvView.mode];
+  const { start, dates } = slice(mvrvView.days);
   chart({
-    mount: document.getElementById('c-mvrv'),
-    readout: document.getElementById('ro-mvrv'),
-    dates,
-    area: true,
-    series: [{ label: 'MVRV', values: S.mvrv.slice(start), color: 'var(--accent)', width: 1.6, fmt: v => v.toFixed(2) }],
-    bands: [{ from: 0, to: 1, fill: 'var(--band-cold)' }, { from: 3.7, to: Infinity, fill: 'var(--band-hot)' }],
-    yFormat: v => v.toFixed(1),
+    mount: $('c-mvrv'), readout: $('ro-mvrv'), dates, area: true,
+    series: [{
+      label: v.label, values: S[v.key].slice(start), color: 'var(--accent)', width: 1.6,
+      fmt: x => x == null ? '&mdash;' : x.toFixed(2),
+    }],
+    bands: v.bands,
+    yFormat: x => x.toFixed(1),
   });
+  $('lg-mvrv').innerHTML = v.legend
+    .map(([c, label]) => `<span><i style="background:${c}"></i>${label}</span>`).join('');
 }
+
+const mvrvBtns = [...document.querySelectorAll('[data-mvrv]')];
+mvrvBtns.forEach(b => b.addEventListener('click', () => {
+  mvrvView.mode = b.dataset.mvrv;
+  mvrvBtns.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  drawMVRV();
+}));
+
+const mvrvInfoBtn = $('mvrv-info-btn'), mvrvInfoPanel = $('mvrv-info');
+mvrvInfoBtn.addEventListener('click', () => {
+  const open = mvrvInfoBtn.getAttribute('aria-expanded') === 'true';
+  mvrvInfoBtn.setAttribute('aria-expanded', String(!open));
+  mvrvInfoPanel.hidden = open;
+});
+
+$('mvrv-src').innerHTML =
+  'Source: Coin Metrics community API, metric <code>CapMVRVCur</code> (CC BY-NC). The Z-score is ' +
+  'computed here at ingest as (market value &minus; realised value) divided by the expanding ' +
+  'standard deviation of market value &mdash; an expanding window, not the whole sample, which is ' +
+  'what makes older cycles comparable. ' +
+  `${S.mvrv.filter(v => v != null).length.toLocaleString('en-US')} daily observations.`;
+
 /* ---------- price block ----------
    Overlays are declared once and drive three things off the same list: the
    toggle buttons, the drawn series, and the legend. Adding a moving average
@@ -745,8 +887,8 @@ $('price-src').innerHTML =
   'realized price are computed from that series at ingest, not by a third party. ' +
   `${S.date.length.toLocaleString('en-US')} daily observations, ${S.date[0]} to ${S.date.at(-1)}.`;
 
-rangeButtons(document.getElementById('r-mvrv'), '4Y', drawMVRV);
+rangeButtons($('r-mvrv'), '4Y', d => { mvrvView.days = d; drawMVRV(); });
 rangeButtons($('r-price'), 'All', d => { priceView.days = d; drawPrice(); });
-drawMVRV(1460);
+drawMVRV();
 drawPrice();
 </script>

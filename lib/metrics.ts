@@ -16,7 +16,7 @@ export type EnrichedRow = DailyRow & {
   ma200d: number | null;
   ma200w: number | null;
   mayer: number | null;
-  mvrvZ: number;
+  mvrvZ: number | null;
   ath: number;
   drawdown: number;
 };
@@ -34,14 +34,44 @@ export function movingAverage(values: number[], window: number): (number | null)
 }
 
 /**
- * Standard deviation of market cap over the full history — the denominator of
- * the MVRV Z-score. Exported so the browser can recompute Z from a live price
- * without shipping the whole history.
+ * Expanding (cumulative) population standard deviation: at each index, the
+ * deviation of everything up to and including that day.
+ *
+ * This is the denominator the MVRV Z-score is defined with, and the distinction
+ * is not academic. Market cap has grown exponentially, so the deviation of the
+ * *whole* sample is dominated by recent values. Divide 2013 by that number and
+ * the largest MVRV reading in Bitcoin's history scores 0.03 — the metric stops
+ * detecting the very tops it exists to detect. With an expanding window the
+ * same day scores 7.2, and 2017 scores 8.6, which is what published charts show.
+ *
+ * Uses Welford's method rather than sum-of-squares: market cap squared is ~1e24,
+ * and subtracting two near-equal numbers that large loses significant digits.
+ *
+ * Returns null until `minSamples` days exist, because the deviation of a handful
+ * of early days is tiny and produces meaningless spikes.
+ */
+export function expandingSd(values: number[], minSamples = 365): (number | null)[] {
+  const out: (number | null)[] = [];
+  let mean = 0, m2 = 0;
+  values.forEach((x, i) => {
+    const n = i + 1;
+    const d = x - mean;
+    mean += d / n;
+    m2 += d * (x - mean);
+    const sd = Math.sqrt(Math.max(0, m2 / n));
+    out.push(n < minSamples || sd <= 0 ? null : sd);
+  });
+  return out;
+}
+
+/**
+ * The expanding deviation as of the most recent day — which, at the end of the
+ * series, is the same number as the full-sample deviation. The browser needs
+ * exactly this one value to recompute today's Z from a live price.
  */
 export function marketCapSd(rows: DailyRow[]): number {
-  const caps = rows.map((r) => r.marketCap);
-  const mean = caps.reduce((a, b) => a + b, 0) / caps.length;
-  return Math.sqrt(caps.reduce((a, c) => a + (c - mean) ** 2, 0) / caps.length);
+  const sd = expandingSd(rows.map((r) => r.marketCap));
+  return sd[sd.length - 1] ?? 0;
 }
 
 export function enrich(rows: DailyRow[]): EnrichedRow[] {
@@ -51,8 +81,8 @@ export function enrich(rows: DailyRow[]): EnrichedRow[] {
   const ma200w = movingAverage(prices, 1400); // 200 weeks &asymp; 1400 days
 
   // MVRV Z-score measures the gap between market cap and realized cap in
-  // standard deviations of market cap's own history.
-  const sd = marketCapSd(rows);
+  // standard deviations of market cap's history *up to that day*.
+  const sd = expandingSd(rows.map((r) => r.marketCap));
 
   let ath = 0;
   return rows.map((r, i) => {
@@ -66,7 +96,7 @@ export function enrich(rows: DailyRow[]): EnrichedRow[] {
       ma200d: ma200d[i],
       ma200w: ma200w[i],
       mayer: ma200d[i] ? r.price / ma200d[i]! : null,
-      mvrvZ: (r.marketCap - realizedCap) / sd,
+      mvrvZ: sd[i] == null ? null : (r.marketCap - realizedCap) / sd[i]!,
       ath,
       drawdown: r.price / ath - 1,
     };
@@ -150,9 +180,11 @@ export const ramp = (v: number, lo: number, hi: number) =>
 
 export function cycleScore(row: EnrichedRow, snap: Snapshot): { score: number; parts: ScorePart[] } {
   const parts: ScorePart[] = [
-    { key: 'mvrvZ', label: 'MVRV Z-score', value: ramp(row.mvrvZ, 0, 7), lo: 0, hi: 7 },
     { key: 'mvrv', label: 'MVRV', value: ramp(row.mvrv, 0.8, 3.7), lo: 0.8, hi: 3.7 },
   ];
+  if (row.mvrvZ != null) {
+    parts.unshift({ key: 'mvrvZ', label: 'MVRV Z-score', value: ramp(row.mvrvZ, 0, 7), lo: 0, hi: 7 });
+  }
   if (row.mayer != null) parts.push({ key: 'mayer', label: 'Mayer Multiple', value: ramp(row.mayer, 0.7, 2.4), lo: 0.7, hi: 2.4 });
   if (row.ma200w != null) parts.push({ key: 'vs200w', label: 'Price vs 200w MA', value: ramp(row.price / row.ma200w, 1, 5), lo: 1, hi: 5 });
   if (snap.fearGreed) parts.push({ key: 'static', label: 'Fear & Greed', value: snap.fearGreed.value, lo: 0, hi: 100 });

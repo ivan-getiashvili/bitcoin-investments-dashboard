@@ -81,6 +81,7 @@ const payload = {
     date: rows.map((r) => r.date),
     price: rows.map((r) => round(r.price)),
     mvrv: rows.map((r) => round(r.mvrv, 3)),
+    mvrvZ: rows.map((r) => round(r.mvrvZ, 3)),
     realizedPrice: rows.map((r) => round(r.realizedPrice)),
     ma50: rows.map((r) => round(r.ma50)),
     ma200d: rows.map((r) => round(r.ma200d)),
