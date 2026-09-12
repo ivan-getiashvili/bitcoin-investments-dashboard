@@ -37,9 +37,14 @@ for attempt in $(seq 1 12); do
   sleep 5
 done
 
-# Never overwrite a good artifact with a broken download.
+# Never overwrite a good artifact with a broken download. Check structure, not
+# copy: an earlier version grepped the page headline and started refusing to
+# mirror the day that headline was reworded.
 test -s "$OUT.tmp" || { echo "Downloaded page is empty — aborting." >&2; exit 1; }
-grep -q 'Bitcoin Cycle Position' "$OUT.tmp" || { echo "Downloaded page lacks its title — aborting." >&2; exit 1; }
+bytes=$(wc -c < "$OUT.tmp")
+[ "$bytes" -gt 100000 ] || { echo "Downloaded page is only $bytes bytes — aborting." >&2; exit 1; }
+grep -q '<title>' "$OUT.tmp" || { echo "Downloaded page has no <title> — aborting." >&2; exit 1; }
+grep -q 'const DATA = {' "$OUT.tmp" || { echo "Downloaded page has no data blob — aborting." >&2; exit 1; }
 grep -q '"mvrv"' "$OUT.tmp" || { echo "Downloaded page has no metric data — aborting." >&2; exit 1; }
 
 mv "$OUT.tmp" "$OUT"
