@@ -1043,6 +1043,10 @@ function windowFor(days, keys) {
    snapshot — the same numbers, labelled honestly rather than pretending. */
 const live = { on: false, price: null, change24h: null, funding: null, oi: null, at: null };
 
+/** Signal order, matching the order of the blocks down the page. Keep the two
+ *  in step: price -> MVRV -> sentiment -> leverage -> network. */
+const PART_ORDER = ['mayer', 'mvrvZ', 'static', 'funding', 'hashRibbon'];
+
 const ramp = (v, lo, hi) => Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100));
 /* `below: null` is the catch-all top band — JSON cannot carry Infinity. */
 const readBand = (bands, v) =>
@@ -1080,12 +1084,17 @@ function derive() {
   // let the score silently average three things while the explainer says four.
   if (funding != null && !parts.some(p => p.key === 'funding')) {
     const bp = funding * 10000;
-    const exchIdx = parts.findIndex(p => p.key === 'exchange');
-    const row = { key: 'funding', label: 'Funding rate', raw: bp,
-                  value: ramp(bp, -1, 5), lo: -1, hi: 5, unit: 'bp' };
-    // keep page order: funding belongs before the network component
-    if (exchIdx >= 0) parts.splice(exchIdx, 0, row); else parts.push(row);
+    parts.push({ key: 'funding', label: 'Funding rate', raw: bp,
+                 value: ramp(bp, -1, 5), lo: -1, hi: 5, unit: 'bp' });
   }
+
+  // Sort into the canonical order rather than inserting next to a named
+  // neighbour. The previous version spliced funding in before the 'exchange'
+  // component; when that component was removed the lookup returned -1 and
+  // funding silently fell to the end — but only in production, where Binance
+  // blocks the build servers and funding is added here rather than baked in.
+  // Sorting cannot drift out of step with the page the way a neighbour can.
+  parts.sort((a, b) => PART_ORDER.indexOf(a.key) - PART_ORDER.indexOf(b.key));
 
   return {
     price, change24h: live.change24h ?? L.change24h,
