@@ -993,6 +993,17 @@ function derive() {
     return { ...p, raw, value };
   });
 
+  // Binance blocks the build servers, so the baked payload often has no funding
+  // component at all. The browser can reach Binance, so add it here rather than
+  // let the score silently average three things while the explainer says four.
+  if (funding != null && !parts.some(p => p.key === 'funding')) {
+    const bp = funding * 10000;
+    parts.push({
+      key: 'funding', label: 'Funding rate', raw: bp,
+      value: ramp(bp, -1, 5), lo: -1, hi: 5, unit: 'bp',
+    });
+  }
+
   return {
     price, change24h: live.change24h ?? L.change24h,
     mvrv, mvrvZ, mayer, ath, drawdown: price / ath - 1,
@@ -1077,8 +1088,9 @@ function renderBoard(d) {
 
   $('divergence').innerHTML = agreement + ' ' + trust;
   $('verdict-line').innerHTML =
-    `Five measurements, each rescaled to 0&ndash;100 points and averaged. They do not all agree, ` +
-    `so each one's own verdict is shown below. Open the <b>&#8505;</b> for the arithmetic.`;
+    `${d.parts.length} independent measurements, each rescaled to 0&ndash;100 points and averaged. ` +
+    `They do not all agree, so each one's own verdict is shown below. Open the <b>&#8505;</b> for ` +
+    `the arithmetic.`;
 }
 
 /** The score, shown as the arithmetic it actually is. */
@@ -1464,11 +1476,59 @@ drawFNG();
 drawMVRV();
 drawPrice();
 
-/* ---------- leverage block ---------- */
+/* ---------- leverage block ----------
+   Funding history is fetched HERE, in the visitor's browser, not baked in at
+   build time. Binance refuses requests from the CI and CDN build machines
+   (cloud IP ranges), so the baked series came back empty in production while
+   working perfectly on a developer laptop — the chart was blank for everyone
+   but me. Browsers are not blocked, which is already how the live price works,
+   so the browser is the only place this data can reliably come from.
+
+   Consequence worth stating: a visitor whose own network blocks Binance sees a
+   leverage chart with no line and a cycle score built from three components
+   instead of four. The page says which, rather than pretending otherwise. */
+
+async function loadFundingHistory(pages = 3) {
+  const rows = [];
+  let endTime = Date.now();
+  for (let i = 0; i < pages; i++) {
+    const r = await fetch(
+      `https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=1000&endTime=${endTime}`);
+    if (!r.ok) break;
+    const batch = await r.json();
+    if (!batch.length) break;
+    rows.unshift(...batch);
+    const oldest = batch[0].fundingTime;
+    if (oldest >= endTime) break;
+    endTime = oldest - 1;
+  }
+  if (!rows.length) return 0;
+
+  // average the three daily settlements, then align onto the shared date axis
+  const byDate = new Map();
+  for (const r of rows) {
+    const d = new Date(r.fundingTime).toISOString().slice(0, 10);
+    const v = Number(r.fundingRate) * 10000;
+    if (!Number.isFinite(v)) continue;
+    (byDate.get(d) ?? byDate.set(d, []).get(d)).push(v);
+  }
+  let filled = 0;
+  S.funding = S.date.map(d => {
+    const vs = byDate.get(d);
+    if (!vs) return null;
+    filled++;
+    return Math.round((vs.reduce((a, b) => a + b, 0) / vs.length) * 1000) / 1000;
+  });
+  return filled;
+}
+
+
 
 // A function declaration, not a const: paint() runs before this point in the
 // script and calls paintLev(), and a const would still be in its temporal dead
 // zone — which killed the whole script before a single chart drew.
+let fundingDays = S.funding.filter(v => v != null).length;
+
 function annualise(bp) { return bp * 3 * 365 / 100; }   // bp per 8h -> % per year
 
 function drawLev() {
@@ -1515,10 +1575,15 @@ function paintLev() {
       `from <b>${Math.min(...f).toFixed(2)} bp</b> to <b>${Math.max(...f).toFixed(2)} bp</b> ` +
       `(roughly ${annualise(Math.min(...f)).toFixed(0)}% to ${annualise(Math.max(...f)).toFixed(0)}% a year).`;
   }
-  $('lev-src').innerHTML =
-    'Source: Binance perpetual futures, public API. Funding is the mean of the three daily ' +
-    `settlements, in basis points. ${f.length.toLocaleString('en-US')} days available; the exchange ` +
-    'retains only about 30 days of open interest, so that figure has no long history here.';
+  $('lev-src').innerHTML = f.length
+    ? 'Source: Binance perpetual futures, public API, fetched by your browser rather than baked ' +
+      'into the page &mdash; Binance refuses requests from the build servers, so this is the only ' +
+      'way the series can be current. Funding is the mean of the three daily settlements, in basis ' +
+      `points. ${f.length.toLocaleString('en-US')} days loaded; the exchange retains only about 30 ` +
+      'days of open interest, so that figure has no long history.'
+    : 'Funding history could not be loaded &mdash; your network or region appears to block Binance. ' +
+      'The rest of the page is unaffected, and the cycle score below is built from the components ' +
+      'that did load.';
 }
 
 $('lev-info-btn').addEventListener('click', () => {
@@ -1611,6 +1676,13 @@ drawLev();
 paintLev();
 drawNet();
 paintNet();
+
+// Load in the background: the page is already useful before this resolves.
+loadFundingHistory().then(days => {
+  fundingDays = days;
+  drawLev();
+  paintLev();
+}).catch(() => { fundingDays = 0; paintLev(); });
 
 
 /* One range control drives all three charts. Per-chart controls meant the price
