@@ -85,20 +85,58 @@ jobs:
         with:
           path: _site
 
-      # Cloudflare — the host behind btcmetrics.online — rebuilds only when main
-      # receives a push. Without this step the canonical site kept whatever data
-      # it had at the last code change, while this workflow quietly refreshed the
-      # mirror every morning: five days without a commit meant five-day-old
-      # numbers on the address people are actually given.
-      #
-      # So the scheduled run appends the day's reading to a public log and commits
-      # it. That push is what makes Cloudflare rebuild, with fresh data of its own.
-      # The log is worth having anyway: a dated, append-only record in git history
-      # of what the site said each day, which nobody can rewrite with hindsight.
-      #
-      # Pushes made with GITHUB_TOKEN do not start workflows, so this cannot loop.
+      # Handed to the `record` job below, which needs nothing else from this build.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-summary
+          path: _site/summary.json
+          retention-days: 1
+
+  # Secondary URL, straight off the repo. Hostinger + the custom domain is the
+  # one to share; this one is a free backup that costs nothing to keep.
+  deploy-pages:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  # Cloudflare — the host behind btcmetrics.online — rebuilds only when main
+  # receives a push. Without this job the canonical site kept whatever data it
+  # had at the last code change, while this workflow quietly refreshed the mirror
+  # every morning: five days without a commit meant five-day-old numbers on the
+  # address people are actually given.
+  #
+  # So the scheduled run appends the day's reading to a public log and commits
+  # it. That push is what makes Cloudflare rebuild, with fresh data of its own.
+  # The log is worth having anyway: a dated, append-only record in git history of
+  # what the site said each day, which nobody can rewrite with hindsight.
+  #
+  # A job of its own so that a failed push is loud (the run goes red) without
+  # holding back the Pages deploy. Pushes made with GITHUB_TOKEN do not start
+  # workflows, so this cannot loop.
+  record:
+    needs: build
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-summary
+          path: _site
+
       - name: Record the daily reading (this push is what refreshes Cloudflare)
-        if: github.event_name != 'push'
         run: |
           node --experimental-strip-types scripts/record-reading.ts
           git config user.name "github-actions[bot]"
@@ -112,15 +150,3 @@ jobs:
             git push -q origin HEAD:main
             echo "Pushed; Cloudflare will rebuild btcmetrics.online from main."
           fi
-
-  # Secondary URL, straight off the repo. Hostinger + the custom domain is the
-  # one to share; this one is a free backup that costs nothing to keep.
-  deploy-pages:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
