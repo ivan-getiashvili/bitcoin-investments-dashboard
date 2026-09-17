@@ -6,8 +6,11 @@
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": "./_site",
-    // Serve index.html at the root and fall back to it rather than a bare 404.
-    "not_found_handling": "single-page-application"
+    // An unknown URL gets _site/404.html with a real 404 status. This used to be
+    // "single-page-application", which answers every path with index.html and
+    // a 200 — so /robots.txt, /sitemap.xml and any typo all returned the whole
+    // dashboard, and a crawler could not tell a missing file from the home page.
+    "not_found_handling": "404-page"
   },
   // The custom domain lives here rather than in the dashboard so it is version
   // controlled: a redeploy re-asserts it, and the config is the record of where

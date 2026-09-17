@@ -33,8 +33,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
 
-      - name: Fetch data and build the site
+      # jsdom, which runs the page at build time so the published HTML already
+      # contains every reading (see scripts/prerender.ts).
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # Ends with scripts/verify-site.ts, which reads _site/ the way a crawler or
+      # an AI assistant does — no JavaScript — and fails the run if the readings
+      # are not in the HTML, or if llms.txt, summary.json and the page disagree.
+      - name: Fetch data, build, prerender and verify the site
         run: npm run build:site
 
       # A failed fetch must never publish a blank page over a working one.
@@ -50,6 +59,9 @@ jobs:
           grep -q 'const DATA = {' _site/index.html || { echo "no data blob baked into the page"; exit 1; }
           grep -q '"mvrv"' _site/index.html || { echo "metric series missing from the payload"; exit 1; }
           test -s _site/live.json || { echo "live.json missing"; exit 1; }
+          for f in robots.txt sitemap.xml llms.txt llms-full.txt index.md summary.json 404.html; do
+            test -s "_site/$f" || { echo "$f missing"; exit 1; }
+          done
           echo "index.html: $bytes bytes - structure checks passed"
 
       # Hostinger's Git integration serves the repo contents verbatim — it runs
@@ -72,6 +84,34 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
+      # Cloudflare — the host behind btcmetrics.online — rebuilds only when main
+      # receives a push. Without this step the canonical site kept whatever data
+      # it had at the last code change, while this workflow quietly refreshed the
+      # mirror every morning: five days without a commit meant five-day-old
+      # numbers on the address people are actually given.
+      #
+      # So the scheduled run appends the day's reading to a public log and commits
+      # it. That push is what makes Cloudflare rebuild, with fresh data of its own.
+      # The log is worth having anyway: a dated, append-only record in git history
+      # of what the site said each day, which nobody can rewrite with hindsight.
+      #
+      # Pushes made with GITHUB_TOKEN do not start workflows, so this cannot loop.
+      - name: Record the daily reading (this push is what refreshes Cloudflare)
+        if: github.event_name != 'push'
+        run: |
+          node --experimental-strip-types scripts/record-reading.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add records/daily-readings.csv
+          if git diff --cached --quiet; then
+            echo "No new on-chain day since the last record; nothing to commit."
+          else
+            git commit -qm "Daily reading $(tail -n 1 records/daily-readings.csv | cut -d, -f1)"
+            git pull -q --rebase origin main
+            git push -q origin HEAD:main
+            echo "Pushed; Cloudflare will rebuild btcmetrics.online from main."
+          fi
 
   # Secondary URL, straight off the repo. Hostinger + the custom domain is the
   # one to share; this one is a free backup that costs nothing to keep.

@@ -12,6 +12,7 @@ import { fetchDailyRows } from '../lib/sources/coinmetrics.ts';
 import { fetchSnapshot } from '../lib/sources/market.ts';
 import { fetchFearGreedHistory } from '../lib/sources/feargreed.ts';
 import { fetchFundingHistory, fetchOpenInterestHistory } from '../lib/sources/binance.ts';
+import { fetchOkxFundingHistory } from '../lib/sources/okx.ts';
 import { enrich, cycleScore, scoreLabel, marketCapSd, ramp, SCORE_BOUNDS, BANDS } from '../lib/metrics.ts';
 
 const round = (v: number | null, dp = 2) =>
@@ -75,16 +76,25 @@ const { score, parts } = cycleScore(now, snap);
 console.log('Fetching derivatives history…');
 const fundingByDate = new Map<string, number>();
 const oiByDate = new Map<string, number>();
+let fundingHistoryVenue: 'Binance' | 'OKX' | null = null;
 try {
   for (const pt of await fetchFundingHistory(900)) fundingByDate.set(pt.date, pt.value);
-  console.log(`  ${fundingByDate.size} days of funding`);
+  console.log(`  ${fundingByDate.size} days of funding (Binance)`);
   sourceStatus.binance = 'ok';
+  fundingHistoryVenue = 'Binance';
 } catch (err) {
-  // Expected on CI and CDN builders, which Binance blocks by IP. Not fatal:
-  // the page fetches this itself from the visitor's browser.
+  // Expected on CI and CDN builders, which Binance refuses by IP range.
   console.warn(`  ! Binance unreachable from this machine (${(err as Error).message.slice(0, 60)})`);
-  console.warn('    Expected on build servers; the browser fetches funding directly.');
   sourceStatus.binance = 'blocked-from-builder';
+  try {
+    for (const pt of await fetchOkxFundingHistory()) fundingByDate.set(pt.date, pt.value);
+    console.log(`  ${fundingByDate.size} days of funding (OKX fallback — reachable from builders)`);
+    sourceStatus.okx = 'ok';
+    fundingHistoryVenue = 'OKX';
+  } catch (err2) {
+    console.warn(`  ! OKX also unreachable: ${(err2 as Error).message.slice(0, 60)}`);
+    sourceStatus.okx = 'unreachable';
+  }
 }
 try {
   for (const pt of await fetchOpenInterestHistory()) oiByDate.set(pt.date, pt.value);
@@ -122,7 +132,7 @@ const exchangePct = rows.map((r) =>
  * page labels by percentile of history instead.
  *
  * Honest limitation, stated on the page: the early years had fewer components to
- * average (Fear & Greed begins 2018, funding 2023), so a 2013 score and a 2026
+ * average (Fear & Greed begins 2018, funding later still), so a 2013 score and a 2026
  * score are not built from identical evidence.
  */
 const B = SCORE_BOUNDS;
@@ -184,6 +194,8 @@ const payload = {
     fearGreed: snap.fearGreed,
     fundingRate: snap.fundingRate,
     openInterestUsd: snap.openInterestUsd,
+    derivativesVenue: snap.derivativesVenue,
+    fundingHistoryVenue,
     hashRateEh: round(snap.hashRateEh, 1),
     difficulty: snap.difficulty,
   },
@@ -244,11 +256,15 @@ const payload = {
     ma200w: rows.map((r) => round(r.ma200w)),
   },
   sourceStatus,
+  // Only what the page actually shows. mempool.space is still fetched into
+  // `latest`, but nothing on screen comes from it, so it is not claimed here.
   sources: [
     { name: 'Coin Metrics community API', license: 'CC BY-NC — non-commercial' },
-    { name: 'Binance public futures API', license: 'public market data' },
-    { name: 'alternative.me', license: 'free' },
-    { name: 'mempool.space', license: 'free' },
+    { name: 'alternative.me Fear & Greed Index', license: 'free' },
+    ...(snap.derivativesVenue === 'OKX' || fundingHistoryVenue === 'OKX'
+      ? [{ name: 'OKX public API', license: 'funding and open interest recorded at build time' }]
+      : []),
+    { name: 'Binance public API', license: 'live price, funding and open interest, fetched by the browser' },
   ],
 };
 

@@ -25,6 +25,11 @@ has no free tier, and the Hetzner account is cancelled and in arrears.
 - `.github/workflows/refresh.yml` runs daily at 01:25 UTC and on push: builds `_site/`, verifies
   the page is non-empty and has data baked in, deploys GitHub Pages, and pushes the built site
   to the `deploy` branch for any host that serves committed files without building
+- The scheduled run also appends the day's reading to `records/daily-readings.csv` and pushes
+  it to `main`. **That commit is what makes Cloudflare rebuild each morning** — Cloudflare only
+  builds on a push, so without it btcmetrics.online served data as old as the last code change.
+  Consequence: `main` moves every day without you. Always `git pull --rebase origin main`
+  before pushing.
 - Two refresh tiers: on-chain daily (vendor publishes `1d` only — confirmed against the
   catalog), price/funding/open-interest live in the browser every 15s from Binance
 
@@ -38,7 +43,8 @@ Ivan expects **every change published immediately to every destination**, with n
 all copies kept identical — he does not want to track which version is where. After any edit,
 run all four steps, in this order:
 
-1. `git add -A && git commit && git push origin main`
+1. `git add -A && git commit && git pull --rebase origin main && git push origin main`
+   (the pull matters: a bot commits the daily reading to `main` every morning)
 2. The push triggers `.github/workflows/refresh.yml`, which redeploys GitHub Pages in ~25s
 3. `bash scripts/sync-artifact.sh` — waits for the deploy, then downloads the **live** page
    into `dist/dashboard.html`. It refuses to mirror a failed deploy or an empty page.
@@ -63,6 +69,29 @@ Two differences that republishing cannot fix, both properties of the Artifact pl
 
 Consequence: **https://btcmetrics.online/ is the only link to share.** Keep republishing the Artifact
 as instructed, but never describe it as current for anyone but Ivan.
+
+## Readable without JavaScript — a hard requirement
+
+Ivan will list this site on platforms where an AI reads the link before a person does. The
+published HTML must therefore contain every reading, explanation and caveat as plain text,
+with no script needed. How that is kept true:
+
+- `scripts/prerender.ts` runs the page's own script in jsdom at build time (network off) and
+  publishes the DOM it produced. One renderer, so the static text cannot drift from the live
+  page. It also writes `summary.json`, `index.md` / `llms-full.txt` (the whole page as
+  Markdown) and `llms.txt`, all read out of that same rendered page.
+- `scripts/assemble.ts` adds JSON-LD, `robots.txt` (AI agents named and allowed),
+  `sitemap.xml` and a real `404.html`; `wrangler.jsonc` uses `not_found_handling: "404-page"`.
+- `scripts/verify-site.ts` is the last step of `npm run build:site`. It parses `_site/` with
+  scripts disabled and fails the build if a reading is missing from the HTML or the text
+  editions disagree with the page.
+- Explainer panels collapse with the class `collapsed`, **never the `hidden` attribute** —
+  text extractors drop `hidden` elements, and the explainers are most of the content.
+- Anything new that shows a number must render from baked data on first paint (so prerender
+  captures it) and, if it is a chart, get a `tableFor(...)` entry in `renderTables()`.
+- Test the production shape locally: `BLOCK_HOSTS=fapi.binance.com,api.binance.com npm run
+  build:site` makes Binance fail the way it does on every CI/CDN builder (HTTP 451), which
+  exercises the OKX fallback in `lib/sources/okx.ts`.
 
 Expect heavy iteration on metrics, data sources and design. Which file to touch:
 
@@ -96,9 +125,10 @@ changes on an explicit republish, so it drifts. btcmetrics.online is canonical.
 | Source | Used for | License note |
 |---|---|---|
 | Coin Metrics community API (keyless) | MVRV `CapMVRVCur`, `PriceUSD`, `CapMrktCurUSD`, `SplyCur`, `SplyExNtv`, `FlowIn/OutExUSD`, `AdrActCnt`, `HashRate`, `ROI30d`, `ROI1yr` | **CC BY-NC — non-commercial only. Must be replaced before charging money.** |
-| Binance public futures API | funding rate, open interest | check ToS before commercial redistribution |
+| Binance public API | live price, funding, open interest — **browser only**; returns HTTP 451 to CI/CDN builders | check ToS before commercial redistribution |
+| OKX public API | funding + open interest at build time (what the static HTML and the score's fifth signal use in production) | check ToS before commercial redistribution |
 | alternative.me | Fear & Greed index | free |
-| mempool.space | hashrate, difficulty | free |
+| mempool.space | fetched into `latest`, not shown anywhere on the page | free |
 
 Realized cap is **not** free — derive it: `realizedCap = marketCap / MVRV`,
 `realizedPrice = realizedCap / supply`.

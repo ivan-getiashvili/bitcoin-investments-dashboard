@@ -10,8 +10,13 @@
   "scripts": {
     "refresh": "node --experimental-strip-types scripts/ingest.ts && node --experimental-strip-types scripts/ingest-live.ts",
     "build": "node --experimental-strip-types scripts/build-page.ts",
+    "prerender": "node --experimental-strip-types scripts/prerender.ts",
     "assemble": "node --experimental-strip-types scripts/assemble.ts",
-    "build:site": "npm run refresh && npm run build && npm run assemble",
+    "verify": "node --experimental-strip-types scripts/verify-site.ts",
+    "build:site": "npm run refresh && npm run build && npm run prerender && npm run assemble && npm run verify",
     "serve": "python3 -m http.server 4173 --directory _site"
+  },
+  "dependencies": {
+    "jsdom": "^26.1.0"
   }
 }

@@ -79,7 +79,8 @@ uses it today; it costs nothing to keep publishing.
 ## Running it locally
 
 ```bash
-npm run build:site   # fetch, compute, bake, assemble into _site/
+npm ci               # once: installs jsdom, used to prerender the page at build time
+npm run build:site   # fetch, compute, bake, prerender, assemble into _site/, verify
 npm run serve        # http://localhost:4173
 ```
 
@@ -96,17 +97,33 @@ whatever is already in `data/`.
 | `scripts/ingest-live.ts` | Fast tier fallback — writes a 170-byte `data/live.json`. |
 | `page/template.html` | The page itself. Edit design here. |
 | `scripts/build-page.ts` | Bakes the data into the template. |
-| `scripts/assemble.ts` | Collects the output into `_site/`. |
+| `scripts/prerender.ts` | Runs the page once at build time so the published HTML already contains every reading; also writes `summary.json`, `index.md` and `llms.txt`. |
+| `scripts/assemble.ts` | Collects the output into `_site/`, with the HTML head, JSON-LD, `robots.txt`, `sitemap.xml` and a real `404.html`. |
+| `scripts/verify-site.ts` | Reads `_site/` with JavaScript off and fails the build if a reading is missing or the text editions disagree with the page. |
+| `records/daily-readings.csv` | Append-only log of what the site said each day, committed by the scheduled run. |
 | `index.html` | Superseded first prototype, kept as a reference. |
+
+## Readable by software, not only by browsers
+
+Every current reading, explanation and caveat is in the HTML itself — no JavaScript needed — so
+a search crawler, a link preview or an AI assistant given the URL reads the same page a person
+does. The same build also publishes:
+
+| URL | What it is |
+|---|---|
+| [`/llms.txt`](https://btcmetrics.online/llms.txt) | Short brief for AI assistants, with today's readings |
+| [`/index.md`](https://btcmetrics.online/index.md) (also `/llms-full.txt`) | The whole page as Markdown, including each chart as a table |
+| [`/summary.json`](https://btcmetrics.online/summary.json) | Today's readings, structured |
+| `/robots.txt`, `/sitemap.xml` | Everything allowed; AI agents named explicitly |
 
 ## Data sources and licensing
 
 | Source | Used for | License |
 |---|---|---|
 | [Coin Metrics community API](https://docs.coinmetrics.io/packages/coin-metrics-community-data) | on-chain metrics | **CC BY-NC — non-commercial only** |
-| Binance public API | price, funding, open interest | public market data |
+| Binance public API | live price, funding, open interest — fetched by the visitor's browser (Binance refuses build servers) | public market data |
+| OKX public API | funding and open interest recorded at build time | public market data |
 | [alternative.me](https://alternative.me/crypto/fear-and-greed-index/) | Fear & Greed index | free |
-| [mempool.space](https://mempool.space/docs/api) | hashrate, difficulty | free |
 
 > **The on-chain data cannot be used commercially as licensed.** Charging for access requires
 > replacing Coin Metrics with a licensed provider first. The adapter layer exists so that is a
