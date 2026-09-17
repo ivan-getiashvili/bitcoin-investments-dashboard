@@ -1,0 +1,28 @@
+name: Diagnose source reachability
+
+# Manual only. Answers one question with evidence instead of guesswork: which
+# data sources can a CI runner actually reach? Binance refuses cloud IP ranges,
+# which has caused several production-only bugs, so before depending on any
+# venue at build time, run this and read the status codes.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe each endpoint from the runner
+        run: |
+          probe() { printf "%-34s " "$1"; curl -s -o /tmp/o -w "HTTP %{http_code}  " --max-time 20 "$2" || printf "FAILED  "; head -c 110 /tmp/o | tr '\n' ' '; echo; }
+          probe "binance fapi funding"      "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT"
+          probe "binance spot"              "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
+          probe "binance.vision spot"       "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT"
+          probe "okx funding"               "https://www.okx.com/api/v5/public/funding-rate?instId=BTC-USDT-SWAP"
+          probe "okx funding history"       "https://www.okx.com/api/v5/public/funding-rate-history?instId=BTC-USDT-SWAP&limit=3"
+          probe "bybit funding"             "https://api.bybit.com/v5/market/funding/history?category=linear&symbol=BTCUSDT&limit=1"
+          probe "deribit funding"           "https://www.deribit.com/api/v2/public/get_funding_rate_history?instrument_name=BTC-PERPETUAL&start_timestamp=1757000000000&end_timestamp=1757100000000"
+          probe "bitmex funding"            "https://www.bitmex.com/api/v1/funding?symbol=XBTUSD&count=1&reverse=true"
+          probe "kraken futures"            "https://futures.kraken.com/derivatives/api/v3/tickers/PF_XBTUSD"
+          probe "coinmetrics"               "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=PriceUSD&frequency=1d&page_size=1"
+          probe "alternative.me"            "https://api.alternative.me/fng/?limit=1"
+          probe "mempool.space"             "https://mempool.space/api/v1/mining/hashrate/3d"
