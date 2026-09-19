@@ -1,3 +1,4 @@
 on_chain_date,recorded_at_utc,price_close_usd,cycle_percentile,cycle_label,raw_average,signals,mayer_multiple,mvrv,mvrv_z,fear_greed,funding_bp_8h,funding_venue,hash_ribbon_pct,exchange_pct
 2026-09-16,2026-09-17T13:35:53.481Z,76082,33,Accumulation,30.8,5,1.083,1.43,0.74,50,0.51,OKX,0.43,13.52
 2026-09-17,2026-09-18T06:10:04.278Z,76387,37,Accumulation,33.1,5,1.086,1.436,0.75,56,0.76,OKX,0.54,13.53
+2026-09-18,2026-09-19T06:09:31.537Z,80944,50,Mid-cycle,38.9,5,1.15,1.52,0.9,71,1,OKX,1.14,13.54
