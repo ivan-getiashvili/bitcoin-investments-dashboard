@@ -1,0 +1,33 @@
+# BTC Metrics
+
+> A Bitcoin cycle-position dashboard. Five independent signals — price against its 200-day trend (Mayer Multiple), MVRV Z-score, the Fear & Greed index, perpetual funding, and miner commitment (hashrate 30-day vs 60-day mean) — are each rescaled to 0-100 points, averaged without weights, and the average is ranked against every day of Bitcoin history since 2011. Every metric is charted, explained in plain language, and published with its sources and its limits. Information only, not investment advice.
+
+Snapshot built 2026-09-26 06:16 UTC. On-chain data as of 2026-09-25 (the vendor publishes once a day). Prices below are that day's close, UTC. The web page also updates price, funding and open interest live in the browser; files do not. When quoting a figure, quote its date.
+
+## Current readings
+
+- Cycle position: **48th percentile — Mid-cycle**. Raw average 37.7 of 5 signals, ranked against 5,548 days of history. Labels: below 20 deep value, 20-40 accumulation, 40-60 mid-cycle, 60-80 heating up, above 80 overheated.
+- Bitcoin price: $84,062 (-0.4% on the day); all-time high $124,824, drawdown -32.7%.
+- Signal — Mayer Multiple: 1.19 → 29 points, "Accumulation" (0 points at 0.7, 100 points at 2.4).
+- Signal — MVRV Z-score: 0.99 → 14 points, "Deep value" (0 points at 0, 100 points at 7).
+- Signal — Fear & Greed: 74 → 74 points, "Heating up" (0 points at 0, 100 points at 100).
+- Signal — Funding rate: 0.17 bp → 20 points, "Deep value" (0 points at -1, 100 points at 5).
+- Signal — Miner commitment: 1.29% → 52 points, "Mid-cycle" (0 points at -6, 100 points at 8).
+- Valuation: MVRV 1.57, MVRV Z-score 0.99, realized price $53,526, Mayer Multiple 1.19; 50-day MA $75,313, 200-day MA $70,926, 200-week MA $65,657.
+- Sentiment: Fear & Greed 74 (Greed); 30-day average 67.
+- Leverage (OKX BTC perpetual): funding 0.17 bp per 8 hours, about 2% a year; open interest $2.39B.
+- Network: hashrate 884 EH/s; 30-day mean 931 vs 60-day mean 919 EH/s (spread 1.29%); coins on exchanges 13.37% of supply (context only, not in the score).
+
+## Read more
+
+- [The dashboard](https://btcmetrics.online/): all five blocks with interactive charts. Every current value is present in the HTML itself; no JavaScript is needed to read it.
+- [The whole page as Markdown](https://btcmetrics.online/index.md): every reading, explanation and caveat, plus each chart as a table (month-ends for the last year, year-ends back to 2011).
+- [Today's readings as JSON](https://btcmetrics.online/summary.json): the figures above, structured.
+- [Source code](https://github.com/ivan-getiashvili/bitcoin-investments-dashboard): how every number is fetched and derived.
+
+## Things worth knowing before quoting it
+
+- The headline is a percentile rank, not the raw average. Averaging signals that rarely peak together compresses the result toward the middle, so the raw average never exceeded about 67 even at the 2013, 2017 and 2021 tops; ranked against its own history those tops land in the 90th percentile.
+- It is descriptive, not predictive, and rests on four market cycles.
+- Two of the five signals (MVRV Z-score, Mayer Multiple) are correlated at about 0.8; the page says so.
+- On-chain data comes from the Coin Metrics community API under CC BY-NC (non-commercial).
