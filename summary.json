@@ -1,0 +1,119 @@
+{
+  "site": "https://btcmetrics.online/",
+  "generatedAt": "2026-10-31T07:12:17.593Z",
+  "onChainDataAsOf": "2026-10-30",
+  "basis": "Build-time snapshot. Price is the daily close (UTC) of onChainDataAsOf; in a browser the page then updates price, funding and open interest live. On-chain metrics are published once a day.",
+  "cyclePosition": {
+    "percentile": 38,
+    "label": "Accumulation",
+    "meaning": "Rank of today's raw average within its own history, 0-100. Below 20 deep value, 20-40 accumulation, 40-60 mid-cycle, 60-80 heating up, above 80 overheated.",
+    "rawAverage": 33.4,
+    "signalsAveraged": 5,
+    "historyDays": 5583
+  },
+  "price": {
+    "usd": 77109.59,
+    "change24h": -0.0139,
+    "allTimeHighUsd": 124824.45,
+    "drawdownFromAllTimeHigh": -0.3823
+  },
+  "signals": [
+    {
+      "key": "mayer",
+      "label": "Mayer Multiple",
+      "reading": 1.055,
+      "unit": "ratio",
+      "points": 20.9,
+      "verdict": "Accumulation",
+      "scoresZeroAt": 0.7,
+      "scoresHundredAt": 2.4
+    },
+    {
+      "key": "mvrvZ",
+      "label": "MVRV Z-score",
+      "reading": 0.744,
+      "unit": "ratio",
+      "points": 10.6,
+      "verdict": "Deep value",
+      "scoresZeroAt": 0,
+      "scoresHundredAt": 7
+    },
+    {
+      "key": "static",
+      "label": "Fear & Greed",
+      "reading": 30,
+      "unit": "index",
+      "points": 30,
+      "verdict": "Accumulation",
+      "scoresZeroAt": 0,
+      "scoresHundredAt": 100
+    },
+    {
+      "key": "funding",
+      "label": "Funding rate",
+      "reading": 1,
+      "unit": "bp",
+      "points": 33.3,
+      "verdict": "Accumulation",
+      "scoresZeroAt": -1,
+      "scoresHundredAt": 5
+    },
+    {
+      "key": "hashRibbon",
+      "label": "Miner commitment",
+      "reading": 4.127,
+      "unit": "pct",
+      "points": 72.3,
+      "verdict": "Heating up",
+      "scoresZeroAt": -6,
+      "scoresHundredAt": 8
+    }
+  ],
+  "valuation": {
+    "mvrv": 1.427,
+    "mvrvZScore": 0.74,
+    "realizedPriceUsd": 54024,
+    "mayerMultiple": 1.055,
+    "ma50Usd": 81894.45,
+    "ma200dUsd": 73108.06,
+    "ma200wUsd": 67297.84
+  },
+  "sentiment": {
+    "fearGreedIndex": 30,
+    "fearGreedLabel": "Fear",
+    "fearGreed30DayAverage": 59.4
+  },
+  "leverage": {
+    "venue": "OKX",
+    "fundingRateBpPer8h": 1,
+    "fundingAnnualisedPct": 11,
+    "openInterestUsd": 2668792878,
+    "fundingHistoryVenue": "OKX"
+  },
+  "network": {
+    "hashRateEhPerSec": 1062,
+    "hashRate30DayMean": 1026.1,
+    "hashRate60DayMean": 985.4,
+    "hashRibbonSpreadPct": 4.13,
+    "coinsOnExchangesPctOfSupply": 13.26
+  },
+  "sources": [
+    {
+      "name": "Coin Metrics community API",
+      "license": "CC BY-NC — non-commercial"
+    },
+    {
+      "name": "alternative.me Fear & Greed Index",
+      "license": "free"
+    },
+    {
+      "name": "OKX public API",
+      "license": "funding and open interest recorded at build time"
+    },
+    {
+      "name": "Binance public API",
+      "license": "live price, funding and open interest, fetched by the browser"
+    }
+  ],
+  "disclaimer": "Information only, not investment advice. Heuristics drawn from four Bitcoin cycles."
+}
